@@ -21,7 +21,7 @@ The website prepares transactions, requests wallet review/signing where required
 
 ## Recovery model
 
-The `/recovery` page explains recovery without relying on the hosted site. A recovery JSON file contains no seed phrase or private key, but it does reveal vault metadata and should still be stored privately.
+The `/recovery` page explains recovery without relying on the hosted site and links to `/recovery/tool`, which includes Kaspire and Kasware wallet connectivity. A recovery JSON file contains no seed phrase or private key, but it does reveal vault metadata and should still be stored privately.
 
 Recovery has three distinct stages:
 
@@ -86,7 +86,8 @@ Keep private infrastructure URLs and credentials in deployment environment confi
 ## Application routes
 
 - `/` — wallet connection, vault creation, discovery, pulse and release interface
-- `/recovery` — recovery explanation and standalone CLI instructions
+- `/recovery` — recovery explanation, wallet-enabled recovery entry point and CLI instructions
+- `/recovery/tool` — complete Kaspire/Kasware recovery workspace for imports, chain refresh, signing and broadcast
 - `/api/timelock-vault` — creates, scans and prepares time-lock and dead-mans-switch transactions
 - `/api/covenant-broadcast` — validates/deserializes signed transaction JSON and submits it through Kaspa wRPC
 - `/api/address-public-key` — public-key lookup support

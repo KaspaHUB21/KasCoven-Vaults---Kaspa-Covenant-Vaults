@@ -287,6 +287,7 @@ button:disabled {
 
 .recoveryHeader,
 .recoveryHero,
+.recoveryToolCta,
 .recoveryGrid,
 .recoveryGuide,
 .cliSection,
@@ -368,6 +369,7 @@ button:disabled {
 }
 
 .recoveryPanel,
+.recoveryToolCta,
 .recoveryGuide,
 .cliSection,
 .recoveryWarning {
@@ -397,11 +399,28 @@ button:disabled {
   margin: 0;
 }
 
+.recoveryToolCta,
 .recoveryGuide,
 .cliSection,
 .recoveryWarning {
   margin-bottom: 24px;
   padding: clamp(18px, 3vw, 28px);
+}
+
+.recoveryToolCta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.recoveryToolCta h2,
+.recoveryToolCta p {
+  margin-top: 0;
+}
+
+.recoveryToolCta .recoveryRepoLink {
+  flex: 0 0 auto;
 }
 
 .recoverySteps {
@@ -855,9 +874,15 @@ button:disabled {
     flex-direction: column;
   }
 
+  .recoveryToolCta {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .vaultHeader,
   .processPanel,
   .recoveryHero,
+  .recoveryToolCta,
   .recoveryGuide,
   .cliSection,
   .recoveryWarning {

@@ -312,7 +312,7 @@ function StatusNotice({ result, loadingText, successTitle, errorTitle, children 
   );
 }
 
-function KasCovenVaults() {
+export function KasCovenVaults({ recoveryMode = false }) {
   const [report, setReport] = useState(null);
   const [activeProvider, setActiveProvider] = useState(null);
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
@@ -344,7 +344,7 @@ function KasCovenVaults() {
   const [dmsAutoReleaseAttempted, setDmsAutoReleaseAttempted] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [selectedVault, setSelectedVault] = useState("timeLock");
-  const [showMyVaults, setShowMyVaults] = useState(false);
+  const [showMyVaults, setShowMyVaults] = useState(recoveryMode);
   const [discoveredTimeLockVaults, setDiscoveredTimeLockVaults] = useState([]);
   const [discoveredDmsVaults, setDiscoveredDmsVaults] = useState([]);
   const timeLockReleaseRef = useRef(null);
@@ -1647,9 +1647,9 @@ function KasCovenVaults() {
       <header className="vaultHeader">
         <div>
           <button className="titleButton" type="button" onClick={() => window.location.reload()} data-darkreader-ignore>
-            KasCoven Vaults
+            {recoveryMode ? "KasCoven Recovery Tool" : "KasCoven Vaults"}
           </button>
-          <p>Time-locked covenant vaults on the Kaspa blockDAG</p>
+          <p>{recoveryMode ? "Connect a wallet, import recovery data and refresh the live Kaspa state" : "Time-locked covenant vaults on the Kaspa blockDAG"}</p>
         </div>
         <nav className="walletActions" aria-label="Wallet actions">
           <a className="recoveryNavLink" href="/recovery">Recovery</a>
@@ -1682,6 +1682,12 @@ function KasCovenVaults() {
           </button>
         </nav>
       </header>
+
+      {recoveryMode ? (
+        <div className="topStatus">
+          Recovery mode: connect Kaspire or Kasware, then import a recovery JSON file or scan the connected address. Wallet approval is requested only when the selected covenant path requires a signature.
+        </div>
+      ) : null}
 
       {status ? <div className="topStatus">{status}</div> : null}
 

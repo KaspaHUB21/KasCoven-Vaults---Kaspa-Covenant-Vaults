@@ -26,6 +26,15 @@ export default function RecoveryPage() {
         </p>
       </section>
 
+      <section className="recoveryToolCta">
+        <div>
+          <p className="vaultEyebrow">WALLET-ENABLED RECOVERY</p>
+          <h2>Open the complete recovery workspace</h2>
+          <p>Connect Kaspire or Kasware, import a single-vault or CLI recovery export, refresh current Kaspa UTXOs, then prepare, review, sign and broadcast the permitted recovery transaction.</p>
+        </div>
+        <a className="recoveryRepoLink" href="/recovery/tool">Open recovery tool</a>
+      </section>
+
       <section className="recoveryGrid" aria-label="Recovery basics">
         <article className="recoveryPanel">
           <span>01</span>
