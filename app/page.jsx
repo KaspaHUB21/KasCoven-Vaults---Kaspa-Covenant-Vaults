@@ -317,6 +317,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
   const [report, setReport] = useState(null);
   const [activeProvider, setActiveProvider] = useState(null);
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [pairing, setPairing] = useState(null);
   const [kaspireAction, setKaspireAction] = useState(null);
   const [status, setStatus] = useState("");
@@ -1692,9 +1693,28 @@ export function KasCovenVaults({ recoveryMode = false }) {
           </button>
           <p>{recoveryMode ? "Connect a wallet, import recovery data and refresh the live Kaspa state" : "Time-locked covenant vaults on the Kaspa blockDAG"}</p>
         </div>
-        <nav className="walletActions" aria-label="Wallet actions">
-          <a className="recoveryNavLink" href="/recovery">Recovery</a>
-          <button className="vaultIconButton" type="button" onClick={openMyVaults} title="My vaults" aria-label="My vaults">
+        <button
+          className="mobileMenuButton"
+          type="button"
+          aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+          aria-expanded={mobileMenuOpen}
+          aria-controls="vault-mobile-menu"
+          onClick={() => {
+            setMobileMenuOpen((open) => !open);
+            setWalletMenuOpen(false);
+          }}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+        <nav
+          id="vault-mobile-menu"
+          className={`walletActions${mobileMenuOpen ? " isOpen" : ""}`}
+          aria-label="Wallet actions"
+        >
+          <a className="recoveryNavLink" href="/recovery" onClick={() => setMobileMenuOpen(false)}>Recovery</a>
+          <button className="vaultIconButton" type="button" onClick={() => { openMyVaults(); setMobileMenuOpen(false); }} title="My vaults" aria-label="My vaults">
             <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
               <rect className="vaultIconFrame" x="7" y="7" width="34" height="34" rx="7" />
               <circle className="vaultIconDial" cx="24" cy="24" r="9" />
@@ -1708,17 +1728,17 @@ export function KasCovenVaults({ recoveryMode = false }) {
             </button>
             {walletMenuOpen && !accountAddress ? (
               <div className="walletConnectDropdown" role="menu">
-                <button type="button" role="menuitem" onClick={connectWithKaspire}>
+                <button type="button" role="menuitem" onClick={() => { setMobileMenuOpen(false); connectWithKaspire(); }}>
                   <strong>Kaspire</strong><span>Mobile · WalletConnect</span>
                 </button>
-                <button type="button" role="menuitem" onClick={connectKasware}>
+                <button type="button" role="menuitem" onClick={() => { setMobileMenuOpen(false); connectKasware(); }}>
                   <strong>Kasware</strong><span>Browser extension</span>
                 </button>
               </div>
             ) : null}
           </div>
 
-          <button className="disconnectButton" type="button" onClick={disconnect} disabled={!accountAddress}>
+          <button className="disconnectButton" type="button" onClick={() => { setMobileMenuOpen(false); disconnect(); }} disabled={!accountAddress}>
             Disconnect
           </button>
         </nav>
