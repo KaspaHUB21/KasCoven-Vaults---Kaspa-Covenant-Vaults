@@ -75,7 +75,7 @@ export default function RecoveryPage() {
           </li>
           <li>
             <strong>Start an independent local copy.</strong>
-            <p>Clone the GitHub repository, configure any reachable Kaspa REST and wRPC node, run the app, then open http://localhost:3000/recovery/tool. This does not depend on the hosted Vaults domain.</p>
+            <p>Clone the GitHub repository, install, build and start it, then open http://localhost:3000/recovery/tool. By default it uses api.kaspa.org for chain data and the Kaspa public wRPC resolver for broadcast, so no own node is required.</p>
           </li>
           <li>
             <strong>Connect the matching wallet and import.</strong>
@@ -106,8 +106,8 @@ export default function RecoveryPage() {
           <code>git clone https://github.com/KaspaHUB21/KasCoven-Vaults---Kaspa-Covenant-Vaults.git</code>
           <code>cd KasCoven-Vaults---Kaspa-Covenant-Vaults</code>
           <code>pnpm install</code>
-          <code>KASPA_API=http://YOUR_KASPA_REST KASPA_WRPC=ws://YOUR_KASPA_WRPC pnpm build</code>
-          <code>KASPA_API=http://YOUR_KASPA_REST KASPA_WRPC=ws://YOUR_KASPA_WRPC pnpm start</code>
+          <code>pnpm build</code>
+          <code>pnpm start</code>
           <code>Open http://localhost:3000/recovery/tool</code>
           <code>pnpm recovery scan --address kaspa:YOUR_ADDRESS --mode all</code>
           <code>pnpm recovery export --address kaspa:YOUR_ADDRESS --mode all --out recovery.json</code>

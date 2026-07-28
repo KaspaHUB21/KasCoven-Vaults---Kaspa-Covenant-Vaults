@@ -23,6 +23,44 @@ function timeoutAfter(ms, message) {
   });
 }
 
+async function connectRpc(kaspa) {
+  const candidates = [];
+  if (KASPA_WRPC) {
+    candidates.push({
+      transport: "configured-wrpc",
+      create: () => new kaspa.RpcClient({
+        url: KASPA_WRPC,
+        encoding: kaspa.Encoding.Borsh,
+        networkId: "mainnet",
+      }),
+    });
+  }
+  candidates.push({
+    transport: "public-wrpc-resolver",
+    create: () => new kaspa.RpcClient({
+      resolver: new kaspa.Resolver(),
+      encoding: kaspa.Encoding.Borsh,
+      networkId: "mainnet",
+    }),
+  });
+
+  const connectionErrors = [];
+  for (const candidate of candidates) {
+    const client = candidate.create();
+    try {
+      await Promise.race([
+        client.connect(),
+        timeoutAfter(10_000, "Kaspa " + candidate.transport + " connection timed out."),
+      ]);
+      return { rpc: client, transport: candidate.transport, connectionErrors };
+    } catch (error) {
+      await client.disconnect().catch(() => null);
+      connectionErrors.push(candidate.transport + ": " + (error && error.message ? error.message : String(error)));
+    }
+  }
+  throw new Error("No Kaspa wRPC endpoint could be reached. " + connectionErrors.join(" | "));
+}
+
 export async function POST(request) {
   let debug = null;
   let rpc = null;
@@ -65,16 +103,13 @@ export async function POST(request) {
       };
     }
 
-    rpc = new kaspa.RpcClient({
-      url: KASPA_WRPC,
-      encoding: kaspa.Encoding.Borsh,
-      networkId: "mainnet",
-    });
-
-    await Promise.race([
-      rpc.connect(),
-      timeoutAfter(10_000, "Kaspa RPC connection timed out. Please wait a moment and try broadcasting again."),
-    ]);
+    const connection = await connectRpc(kaspa);
+    rpc = connection.rpc;
+    debug = {
+      ...(debug || {}),
+      rpcTransport: connection.transport,
+      connectionFallbacks: connection.connectionErrors,
+    };
 
     try {
       const result = await Promise.race([
@@ -86,6 +121,7 @@ export async function POST(request) {
         ok: true,
         txId: result?.transactionId || result,
         result,
+        transport: connection.transport,
       });
     } finally {
       await rpc.disconnect().catch(() => null);

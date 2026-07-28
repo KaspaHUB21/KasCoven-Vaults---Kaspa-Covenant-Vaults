@@ -53,7 +53,7 @@ Configuration:
 - pnpm via Corepack
 - Internet access during installation for the Rusty Kaspa WASM SDK
 - A compatible wallet for signing
-- Access to a Kaspa mainnet wRPC node for broadcasting
+- Network access to api.kaspa.org and a resolver-selected public Kaspa Mainnet wRPC node, or equivalent custom endpoints
 
 ## Install and run
 
@@ -72,14 +72,19 @@ pnpm start
 pnpm run install:toccata
 ```
 
-The production server defaults to Next.js port 3000. Recovery users open `http://localhost:3000/recovery/tool`, connect the matching Kaspire or Kasware wallet, import recovery JSON or scan their address, refresh UTXOs, and then review and authorize the available covenant action. The KasLab service uses its own service configuration and reverse proxy.
+The production server defaults to Next.js port 3000. No own Kaspa node is required with the default public REST and resolver configuration. Recovery users open `http://localhost:3000/recovery/tool`, connect the matching Kaspire or Kasware wallet, import recovery JSON or scan their address, refresh UTXOs, and then review and authorize the available covenant action. The KasLab service uses its own service configuration and reverse proxy.
 
 ## Server configuration
 
-The application reads these server-side variables:
+The application works without node configuration:
 
-- `KASPA_API` — Kaspa REST API base URL
-- `KASPA_WRPC` — Kaspa wRPC WebSocket endpoint used for transaction submission
+- `KASPA_API` defaults to `https://api.kaspa.org` for history, UTXOs and network data.
+- If `KASPA_WRPC` is unset, the bundled Kaspa Resolver selects a community-operated public Mainnet wRPC endpoint for broadcast.
+
+Optional server-side overrides:
+
+- `KASPA_API` — custom Kaspa REST API base URL
+- `KASPA_WRPC` — own Kaspa wRPC WebSocket endpoint; attempted before the public resolver
 
 Keep private infrastructure URLs and credentials in deployment environment configuration. Do not commit `.env*.local` files.
 
