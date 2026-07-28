@@ -1040,7 +1040,7 @@ body {
 .connectWalletButton, .disconnectButton { border-radius: 999px; }
 
 .vaultIntro {
-  width: min(980px, 100%);
+  width: min(1180px, 100%);
   margin: 0 auto;
   padding: clamp(64px, 9vw, 118px) 20px clamp(38px, 6vw, 68px);
   text-align: center;
@@ -1178,12 +1178,14 @@ body {
 
 @media (min-width: 921px) {
   .vaultSovereigntyTitle {
-    width: fit-content;
-    max-width: 100%;
+    display: block;
+    width: 100%;
+    max-width: none;
     margin-inline: auto;
-    padding: 0.08em 0.14em 0.16em;
-    font-size: clamp(3rem, 6vw, 4.6rem);
-    line-height: 1.04;
+    padding: 0.08em 0.3em 0.16em;
+    overflow: visible;
+    font-size: clamp(3rem, 5.4vw, 4.2rem);
+    line-height: 1.08;
     white-space: nowrap;
   }
 }
