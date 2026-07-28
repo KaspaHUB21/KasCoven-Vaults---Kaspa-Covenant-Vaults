@@ -1484,6 +1484,10 @@ async function getVaultStatus(searchParams) {
   });
 }
 
+async function getCurrentDaaScore() {
+  return Response.json({ currentDaaScore: await getCurrentBlueScore() });
+}
+
 async function listWizardVaults(kaspa) {
   const records = await findIndexedVaults({});
   const currentBlueScore = await getCurrentBlueScore();
@@ -1633,6 +1637,7 @@ export async function GET(request) {
 
   try {
     const kaspa = loadToccataKaspa();
+    if (action === "current-daa") return getCurrentDaaScore();
     if (action === "status") return getVaultStatus(searchParams);
     if (action === "wizard-create") return createWizardVaultDraft(kaspa, searchParams);
     if (action === "wizard-list") return listWizardVaults(kaspa);

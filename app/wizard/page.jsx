@@ -100,11 +100,26 @@ export default function WizardPage() {
     }
   }
 
+  async function loadCurrentDaaScore() {
+    try {
+      const data = await readResponse(await fetch("/api/timelock-vault?action=current-daa", { cache: "no-store" }));
+      const score = Number(data.currentDaaScore || 0);
+      if (score) {
+        setCurrentDaaScore(score);
+        setUnlockDaaScore((current) => current || String(score + 3000));
+      }
+    } catch {
+      // Keep the last authoritative score during a temporary RPC delay.
+    }
+  }
+
   useEffect(() => {
     const refresh = window.setInterval(loadVaults, 15_000);
+    const daaRefresh = window.setInterval(loadCurrentDaaScore, 1_000);
     const handleAction = (event) => setKaspireAction(event.detail?.active ? event.detail : null);
     window.addEventListener("vaults:kaspireAction", handleAction);
     loadVaults();
+    loadCurrentDaaScore();
 
     (async () => {
       try {
@@ -121,6 +136,7 @@ export default function WizardPage() {
 
     return () => {
       window.clearInterval(refresh);
+      window.clearInterval(daaRefresh);
       window.removeEventListener("vaults:kaspireAction", handleAction);
     };
   }, []);
