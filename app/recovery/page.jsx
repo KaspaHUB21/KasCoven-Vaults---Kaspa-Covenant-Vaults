@@ -10,6 +10,7 @@ export default function RecoveryPage() {
     <main className="recoveryPage">
       <header className="recoveryHeader">
         <a className="recoveryBrand" href="/">
+          <img src="/kascoven-logo.png" alt="" aria-hidden="true" />
           KasCoven Vaults
         </a>
         <a className="recoveryRepoLink" href={GITHUB_REPO_URL} target="_blank" rel="noreferrer">

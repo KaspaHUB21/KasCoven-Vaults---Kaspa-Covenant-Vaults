@@ -305,12 +305,23 @@ button:disabled {
 }
 
 .recoveryBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   color: var(--kaspa);
   font-family: "Orbitron", "Rajdhani", "Eurostile", "Bank Gothic", ui-monospace, monospace;
   font-size: clamp(1.45rem, 3vw, 2.4rem);
   font-weight: 950;
   text-decoration: none;
   text-shadow: 1px 0 0 var(--orange), 0 0 22px rgba(73, 234, 217, 0.22);
+}
+
+.recoveryBrand img {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  object-fit: cover;
+  box-shadow: 0 0 20px rgba(73, 234, 217, 0.18);
 }
 
 .recoveryRepoLink {
@@ -1006,19 +1017,16 @@ body {
   text-shadow: none;
 }
 
-.titleButton::before {
-  content: "KC";
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  border: 1px solid rgba(73, 234, 217, 0.42);
-  border-radius: 11px;
-  color: #04130f;
-  background: linear-gradient(135deg, var(--kaspa), var(--kaspa-soft));
-  box-shadow: 0 0 24px rgba(73, 234, 217, 0.2);
-  font-size: 0.73rem;
-  font-weight: 950;
+.titleButton::before { display: none; }
+
+.headerBrandLogo {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(73, 234, 217, 0.36);
+  border-radius: 12px;
+  object-fit: cover;
+  box-shadow: 0 0 22px rgba(73, 234, 217, 0.2);
 }
 
 .walletActions {

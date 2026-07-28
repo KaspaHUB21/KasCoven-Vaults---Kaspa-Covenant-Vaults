@@ -1647,6 +1647,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
       <header className="vaultHeader">
         <div>
           <button className="titleButton" type="button" onClick={() => window.location.reload()} data-darkreader-ignore>
+            <img className="headerBrandLogo" src="/kascoven-logo.png" alt="" aria-hidden="true" />
             {recoveryMode ? "KasCoven Recovery Tool" : "KasCoven Vaults"}
           </button>
           <p>{recoveryMode ? "Connect a wallet, import recovery data and refresh the live Kaspa state" : "Time-locked covenant vaults on the Kaspa blockDAG"}</p>
