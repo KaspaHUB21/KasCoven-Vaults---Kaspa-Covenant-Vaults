@@ -815,31 +815,49 @@ button:disabled {
   background: rgba(0, 0, 0, 0.44);
 }
 
-.vaultFooter {
-  width: min(1240px, 100%);
-  margin: 28px auto 0;
-  padding: 22px 0 4px;
-  text-align: center;
-  font-size: clamp(1.35rem, 2.6vw, 2.4rem);
-  font-weight: 950;
+.footer-flow {
+  width: 100vw;
+  min-height: 86px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  left: 50%;
+  margin: 28px 0 -40px -50vw;
+  overflow: hidden;
   color: var(--kaspa);
-  text-shadow:
-    1px 0 0 var(--orange),
-    0 0 18px rgba(73, 234, 217, 0.34),
-    0 0 28px rgba(255, 138, 32, 0.16);
+  font-weight: 900;
+  border-top: 1px solid rgba(112, 255, 240, 0.18);
+  background: #07100f;
 }
 
-.vaultFooterLink {
-  display: block;
-  margin: -22px 0 -4px;
-  padding: 22px 0 4px;
+.footer-flow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(112, 255, 240, 0.35), transparent);
+  filter: blur(18px);
+  transform: translateX(-100%);
+  animation: footerFlow 5s linear infinite;
+}
+
+.footer-flow a {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: inherit;
+  place-items: center;
   color: inherit;
   text-decoration: none;
+  text-shadow: 0 0 18px rgba(112, 255, 240, 0.85);
 }
 
-.vaultFooterLink:focus-visible {
+.footer-flow a:focus-visible {
   outline: 2px solid var(--kaspa);
-  outline-offset: 5px;
+  outline-offset: 6px;
+}
+
+@keyframes footerFlow {
+  to { transform: translateX(100%); }
 }
 
 @media (max-width: 920px) {

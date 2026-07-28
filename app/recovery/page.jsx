@@ -127,8 +127,8 @@ export default function RecoveryPage() {
         </p>
       </section>
 
-      <footer className="vaultFooter" data-darkreader-ignore>
-        <a className="vaultFooterLink" href="https://kaslab.space/">Developed by HUB21</a>
+      <footer className="footer-flow" data-darkreader-ignore>
+        <a href="https://kaslab.space/" aria-label="Visit HUB21 at kaslab.space">Developed by HUB21</a>
       </footer>
     </main>
   );
