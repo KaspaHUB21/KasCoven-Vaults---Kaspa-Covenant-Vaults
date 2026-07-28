@@ -1683,6 +1683,17 @@ export function KasCovenVaults({ recoveryMode = false }) {
         </nav>
       </header>
 
+      <section className="vaultIntro">
+        <p className="vaultEyebrow">KASPA L1 · NON-CUSTODIAL · COVENANT ENFORCED</p>
+        <h1>{recoveryMode ? "Recover access. Keep control." : "Put time on your side."}</h1>
+        <p className="vaultIntroLead">{recoveryMode ? "Restore vault context from portable records or Kaspa on-chain data, then authorize only the action the covenant permits." : "Create programmable KAS vaults whose release conditions live on the blockDAG—not on a company server."}</p>
+        <div className="vaultTrustRow" aria-label="Vault guarantees">
+          <span><i />Your keys stay in your wallet</span>
+          <span><i />Rules enforced on Kaspa L1</span>
+          <span><i />Portable recovery path</span>
+        </div>
+      </section>
+
       {recoveryMode ? (
         <div className="topStatus">
           Recovery mode: connect Kaspire or Kasware, then import a recovery JSON file or scan the connected address. Wallet approval is requested only when the selected covenant path requires a signature.

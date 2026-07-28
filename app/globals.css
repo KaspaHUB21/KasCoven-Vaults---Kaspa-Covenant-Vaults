@@ -955,3 +955,222 @@ button:disabled {
 .kaspireActionPrompt p { margin: 0; color: var(--muted); }
 .kaspireActionPrompt span { color: var(--muted); font-size: .85rem; }
 .kaspireActionPrompt a { justify-content: center; text-decoration: none; }
+
+
+/* 2026 vault control layout refresh */
+body {
+  background:
+    radial-gradient(ellipse at 50% -10%, rgba(73, 234, 217, 0.16), transparent 42%),
+    radial-gradient(circle at 92% 32%, rgba(255, 138, 32, 0.08), transparent 24%),
+    #06100e;
+}
+
+.vaultPage {
+  overflow: clip;
+  padding: 0 24px 40px;
+}
+
+.vaultPage::before {
+  opacity: 0.55;
+  background-size: 56px 56px;
+}
+
+.vaultHeader {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  align-items: center;
+  width: 100vw;
+  margin: 0 0 0 calc(50% - 50vw);
+  padding: 11px max(24px, calc((100vw - 1340px) / 2));
+  border: 0;
+  border-bottom: 1px solid rgba(73, 234, 217, 0.14);
+  border-radius: 0;
+  background: rgba(6, 16, 14, 0.84);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(18px);
+}
+
+.vaultHeader > div:first-child { min-width: 0; }
+.vaultHeader > div:first-child > p { display: none; }
+
+.titleButton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.08rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  text-shadow: none;
+}
+
+.titleButton::before {
+  content: "KC";
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(73, 234, 217, 0.42);
+  border-radius: 11px;
+  color: #04130f;
+  background: linear-gradient(135deg, var(--kaspa), var(--kaspa-soft));
+  box-shadow: 0 0 24px rgba(73, 234, 217, 0.2);
+  font-size: 0.73rem;
+  font-weight: 950;
+}
+
+.walletActions {
+  grid-template-columns: auto 44px minmax(150px, 210px) auto;
+  gap: 8px;
+}
+
+.walletActions button,
+.recoveryNavLink { min-height: 40px; }
+
+.recoveryNavLink {
+  border-color: transparent;
+  border-radius: 999px;
+  color: var(--muted);
+}
+
+.vaultIconButton { width: 44px; height: 40px; border-radius: 999px; }
+.vaultIconButton svg { width: 28px; height: 28px; }
+.connectWalletButton, .disconnectButton { border-radius: 999px; }
+
+.vaultIntro {
+  width: min(980px, 100%);
+  margin: 0 auto;
+  padding: clamp(64px, 9vw, 118px) 20px clamp(38px, 6vw, 68px);
+  text-align: center;
+}
+
+.vaultIntro .vaultEyebrow {
+  letter-spacing: 0.13em;
+  font-size: 0.7rem;
+}
+
+.vaultIntro h1 {
+  margin: 12px 0 18px;
+  font-size: clamp(3rem, 8vw, 6.7rem);
+  line-height: 0.91;
+  letter-spacing: -0.07em;
+  background: linear-gradient(110deg, #f4fffd 12%, var(--kaspa) 58%, #ffb16b 112%);
+  background-clip: text;
+  color: transparent;
+}
+
+.vaultIntroLead {
+  max-width: 680px;
+  margin: 0 auto;
+  color: var(--muted);
+  font-size: clamp(1rem, 1.8vw, 1.18rem);
+  line-height: 1.65;
+}
+
+.vaultTrustRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.vaultTrustRow span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 13px;
+  border: 1px solid rgba(73, 234, 217, 0.14);
+  border-radius: 999px;
+  color: rgba(238, 252, 255, 0.72);
+  background: rgba(11, 24, 21, 0.72);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.vaultTrustRow i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--kaspa);
+  box-shadow: 0 0 10px var(--kaspa);
+}
+
+.topStatus, .myVaultsPanel, .processPanel, .vaultHeroCards { width: min(1180px, 100%); }
+
+.vaultHeroCards { gap: 14px; margin-bottom: 16px; }
+.vaultChoice {
+  grid-template-columns: 152px minmax(0, 1fr);
+  grid-template-rows: 1fr;
+  min-height: 220px;
+  border-color: rgba(73, 234, 217, 0.12);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(18, 36, 32, 0.96), rgba(8, 18, 16, 0.95));
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.25);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.vaultChoice:hover { transform: translateY(-3px); border-color: rgba(73, 234, 217, 0.34); }
+.vaultChoice.isSelected {
+  border-color: rgba(73, 234, 217, 0.55);
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.34), 0 0 30px rgba(73, 234, 217, 0.08);
+}
+
+.vaultChoice img {
+  height: 100%;
+  max-height: none;
+  padding: 18px 8px 18px 18px;
+  object-fit: contain;
+  background: radial-gradient(circle, rgba(73, 234, 217, 0.13), transparent 65%);
+}
+
+.vaultChoice div { align-content: center; padding: 24px 24px 24px 12px; }
+.vaultChoice h2 { font-size: clamp(1.25rem, 2vw, 1.65rem); letter-spacing: -0.025em; }
+.vaultChoice p { font-size: 0.92rem; }
+.vaultChoice button {
+  width: fit-content;
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 999px;
+}
+
+.processPanel, .myVaultsPanel {
+  border-color: rgba(73, 234, 217, 0.15);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(14, 28, 25, 0.94), rgba(8, 17, 15, 0.94));
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.28);
+}
+
+.processPanel { padding: clamp(20px, 3vw, 32px); gap: 22px; }
+.processHeader { padding-bottom: 18px; border-bottom: 1px solid rgba(73, 234, 217, 0.1); }
+.processHeader h2 { letter-spacing: -0.035em; }
+.vaultField input, .vaultSelect { border-color: rgba(73, 234, 217, 0.18); border-radius: 11px; background: rgba(3, 10, 9, 0.7); }
+.stepCard, .releaseSection, .statusNotice, .infoTile { border-color: rgba(73, 234, 217, 0.12); border-radius: 14px; background: rgba(4, 12, 11, 0.56); }
+.stepCard { padding: 18px; }
+.stepCard span { width: 30px; height: 30px; border: 0; font-size: 0.78rem; }
+.stepCard button, .actionPair button, .myVaultActions button, .ownedVault button { border-radius: 999px; }
+
+@media (max-width: 920px) {
+  .vaultPage { padding-inline: 14px; }
+  .vaultHeader { display: flex; width: 100vw; margin-left: calc(50% - 50vw); padding-inline: 14px; }
+  .vaultIntro { padding-top: 54px; }
+  .vaultChoice { grid-template-columns: 120px minmax(0, 1fr); grid-template-rows: 1fr; }
+  .vaultChoice img { height: 100%; max-height: none; }
+}
+
+@media (max-width: 620px) {
+  .vaultHeader { position: relative; display: grid; align-items: stretch; gap: 12px; }
+  .walletActions { grid-template-columns: 44px 1fr; }
+  .recoveryNavLink { grid-column: 1 / -1; grid-row: auto; }
+  .titleButton { font-size: 1rem; }
+  .vaultIntro { padding: 48px 4px 34px; }
+  .vaultIntro h1 { font-size: clamp(2.75rem, 16vw, 4.5rem); }
+  .vaultTrustRow { align-items: stretch; flex-direction: column; }
+  .vaultTrustRow span { justify-content: center; }
+  .vaultHeroCards { grid-template-columns: 1fr; }
+  .vaultChoice { grid-template-columns: 96px minmax(0, 1fr); min-height: 190px; }
+  .vaultChoice div { padding: 18px 16px 18px 8px; }
+  .vaultChoice button { width: 100%; }
+}
