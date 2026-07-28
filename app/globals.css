@@ -1373,7 +1373,9 @@ body {
   background: rgba(2, 9, 9, 0.72);
 }
 .wizardForm input[readonly] { color: var(--kaspa-soft); background: rgba(73, 234, 217, 0.06); }
-.wizardDaaHint { grid-column: 1 / -1; margin: 0; color: #c8b9ff; font-size: 0.82rem; }
+.wizardDaaHint { display: grid; grid-column: 1 / -1; gap: 4px; margin: 0; color: #c8b9ff; font-size: 0.82rem; }
+.wizardDaaHint strong { color: var(--kaspa-soft); font-size: 0.92rem; }
+.wizardDaaHint small { color: var(--muted); line-height: 1.45; }
 .wizardForm > button { grid-column: 1 / -1; min-height: 48px; border-color: rgba(151, 119, 255, 0.55); border-radius: 999px; }
 .wizardBoardHeading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .wizardBoardHeading button { border-radius: 999px; }

@@ -7,6 +7,17 @@ function shortAddress(address) {
   return address ? `${address.slice(0, 12)}…${address.slice(-8)}` : "Not connected";
 }
 
+function formatEstimatedDuration(daaBlocks) {
+  let seconds = Math.max(0, Math.ceil(Number(daaBlocks || 0) / 10));
+  const days = Math.floor(seconds / 86400);
+  seconds %= 86400;
+  const hours = Math.floor(seconds / 3600);
+  seconds %= 3600;
+  const minutes = Math.floor(seconds / 60);
+  seconds %= 60;
+  return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+}
+
 async function readResponse(response) {
   const data = await response.json();
   if (!response.ok) throw new Error(data?.error || "Request failed.");
@@ -34,6 +45,10 @@ export default function WizardPage() {
     () => address ? `${walletName} · ${shortAddress(address)}` : "Connect Wallet",
     [address, walletName],
   );
+  const unlockDaaDifference = Math.max(0, Number(unlockDaaScore || 0) - currentDaaScore);
+  const estimatedUnlockDate = unlockDaaDifference
+    ? new Date(Date.now() + Math.ceil(unlockDaaDifference / 10) * 1000)
+    : null;
 
   async function applyWallet(nextWallet, name) {
     const accounts = name === "Kasware"
@@ -227,14 +242,22 @@ export default function WizardPage() {
           <h2>Lock a prize for the fastest claimant</h2>
           <p>Creation requires your wallet signature. Claiming does not: after expiry, the covenant itself authorizes the first transaction.</p>
           <p className="wizardIrreversible">Once broadcast, the creator cannot cancel or reclaim this vault. After the timer expires, the prize is intentionally open to everyone.</p>
-          <p className="wizardIrreversible">Once broadcast, the creator cannot cancel or reclaim this vault. After the timer expires, the prize is intentionally open to everyone.</p>
         </div>
         <div className="wizardForm">
           <label>Vault name<input value={vaultName} maxLength={64} onChange={(event) => setVaultName(event.target.value)} /></label>
           <label>Prize in KAS<input type="number" min="0.01" step="0.01" value={amountKas} onChange={(event) => setAmountKas(event.target.value)} /></label>
           <label>Current DAA score<input type="text" value={currentDaaScore || "Loading…"} readOnly /></label>
           <label>Unlock DAA score<input type="number" min={currentDaaScore + 1} step="1" value={unlockDaaScore} onChange={(event) => setUnlockDaaScore(event.target.value)} /></label>
-          <p className="wizardDaaHint">{unlockDaaScore && currentDaaScore ? `${Math.max(0, Number(unlockDaaScore) - currentDaaScore).toLocaleString()} DAA blocks until unlock` : "Choose an unlock score above the current DAA score."}</p>
+          <div className="wizardDaaHint">
+            {unlockDaaScore && currentDaaScore ? (
+              <>
+                <strong>{unlockDaaDifference.toLocaleString()} DAA until unlock</strong>
+                <span>Estimated real time: ≈ {formatEstimatedDuration(unlockDaaDifference)}</span>
+                <span>Estimated unlock: {estimatedUnlockDate?.toLocaleString()}</span>
+                <small>Estimate based on approximately 10 DAA per second. Kaspa DAA score is authoritative.</small>
+              </>
+            ) : "Choose an unlock score above the current DAA score."}
+          </div>
           <button type="button" onClick={createVault} disabled={createState?.loading || !address}>
             {createState?.loading ? "Waiting for wallet…" : "Create prize vault"}
           </button>
