@@ -29,10 +29,13 @@ export default function RecoveryPage() {
       <section className="recoveryToolCta">
         <div>
           <p className="vaultEyebrow">WALLET-ENABLED RECOVERY</p>
-          <h2>Open the complete recovery workspace</h2>
-          <p>Connect Kaspire or Kasware, import a single-vault or CLI recovery export, refresh current Kaspa UTXOs, then prepare, review, sign and broadcast the permitted recovery transaction.</p>
+          <h2>Choose hosted or independent recovery</h2>
+          <p>The tool on this deployment is convenient while this website is online. For outage recovery, clone the GitHub repository and open the same wallet-enabled workspace locally at http://localhost:3000/recovery/tool or on an independent mirror.</p>
         </div>
-        <a className="recoveryRepoLink" href="/recovery/tool">Open recovery tool</a>
+        <div className="recoveryToolActions">
+          <a className="recoveryRepoLink" href="/recovery/tool">Use on this deployment</a>
+          <a className="recoveryRepoLink" href={GITHUB_REPO_URL} target="_blank" rel="noreferrer">Self-host from GitHub</a>
+        </div>
       </section>
 
       <section className="recoveryGrid" aria-label="Recovery basics">

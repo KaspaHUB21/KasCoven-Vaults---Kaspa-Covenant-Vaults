@@ -419,6 +419,12 @@ button:disabled {
   margin-top: 0;
 }
 
+.recoveryToolActions {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 10px;
+}
+
 .recoveryToolCta .recoveryRepoLink {
   flex: 0 0 auto;
 }
@@ -877,6 +883,10 @@ button:disabled {
   .recoveryToolCta {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .recoveryToolActions {
+    width: 100%;
   }
 
   .vaultHeader,
