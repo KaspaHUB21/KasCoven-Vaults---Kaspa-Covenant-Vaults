@@ -306,6 +306,22 @@ async function getCurrentBlueScore() {
   return Number(data?.virtualDaaScore || data?.blueScore || 0);
 }
 
+async function fetchWithRetry(url, options = {}, attempts = 3) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await fetch(url, options);
+      if (response.ok || response.status < 500 || attempt === attempts) return response;
+      lastError = new Error(`Kaspa API returned HTTP ${response.status}.`);
+    } catch (error) {
+      lastError = error;
+      if (attempt === attempts) throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, attempt * 120));
+  }
+  throw lastError || new Error("Kaspa API request failed.");
+}
+
 async function findLatestDeadManSwitchPulse(beneficiaryAddress, vaultAddress) {
   if (!beneficiaryAddress?.startsWith("kaspa:") || !vaultAddress?.startsWith("kaspa:")) return null;
 
@@ -1500,7 +1516,10 @@ async function listWizardVaults(kaspa) {
     const vault = makeWizardVault(kaspa, payload.unlockTime);
     if (vault.address !== payload.vaultAddress || vault.redeemScript !== payload.redeemScript) continue;
 
-    const response = await fetch(kaspaApiUrl(`/addresses/${vault.address}/utxos`), { cache: "no-store" });
+    const response = await fetchWithRetry(
+      kaspaApiUrl(`/addresses/${vault.address}/utxos`),
+      { cache: "no-store" },
+    );
     if (!response.ok) continue;
     const selected = pickSpendableUtxo(await response.json());
     if (!selected) continue;

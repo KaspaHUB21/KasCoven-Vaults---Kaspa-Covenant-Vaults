@@ -19,7 +19,16 @@ function formatEstimatedDuration(daaBlocks) {
 }
 
 async function readResponse(response) {
-  const data = await response.json();
+  const text = await response.text();
+  if (!text.trim()) {
+    throw new Error(`The server returned an empty response (HTTP ${response.status}). Please refresh again.`);
+  }
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`The server returned an invalid response (HTTP ${response.status}). Please refresh again.`);
+  }
   if (!response.ok) throw new Error(data?.error || "Request failed.");
   return data;
 }
@@ -103,11 +112,27 @@ export default function WizardPage() {
 
   async function loadVaults() {
     try {
-      const data = await readResponse(await fetch("/api/timelock-vault?action=wizard-list", { cache: "no-store" }));
+      let data;
+      let lastError;
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        try {
+          data = await readResponse(await fetch("/api/timelock-vault?action=wizard-list", { cache: "no-store" }));
+          break;
+        } catch (error) {
+          lastError = error;
+          if (attempt < 3) await new Promise((resolve) => window.setTimeout(resolve, attempt * 250));
+        }
+      }
+      if (!data) throw lastError || new Error("Prize board could not be refreshed.");
       const nextCurrentDaaScore = Number(data.currentBlueScore || 0);
       setCurrentDaaScore(nextCurrentDaaScore);
       setUnlockDaaScore((current) => current || (nextCurrentDaaScore ? String(nextCurrentDaaScore + 3000) : ""));
       setVaults(Array.isArray(data.vaults) ? data.vaults : []);
+      setClaimState((current) => {
+        if (!current.list) return current;
+        const { list, ...remaining } = current;
+        return remaining;
+      });
     } catch (error) {
       setClaimState((current) => ({ ...current, list: { error: error?.message || String(error) } }));
     } finally {
