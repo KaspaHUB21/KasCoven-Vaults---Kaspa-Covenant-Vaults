@@ -1174,3 +1174,11 @@ body {
   .vaultChoice div { padding: 18px 16px 18px 8px; }
   .vaultChoice button { width: 100%; }
 }
+
+
+@media (min-width: 921px) {
+  .vaultSovereigntyTitle {
+    font-size: clamp(3.3rem, 5.2vw, 4.8rem);
+    white-space: nowrap;
+  }
+}

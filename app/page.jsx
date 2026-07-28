@@ -1685,7 +1685,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
 
       <section className="vaultIntro">
         <p className="vaultEyebrow">KASPA L1 · NON-CUSTODIAL · COVENANT ENFORCED</p>
-        <h1>{recoveryMode ? "Recover access. Keep control." : "Your money. Your rules."}</h1>
+        <h1 className={recoveryMode ? undefined : "vaultSovereigntyTitle"}>{recoveryMode ? "Recover access. Keep control." : "Your money. Your rules."}</h1>
         <p className="vaultIntroLead">{recoveryMode ? "Restore vault context from portable records or Kaspa on-chain data, then authorize only the action the covenant permits." : "Programmable self-custody and true sovereignty. Secured by covenant logic and Kaspa consensus."}</p>
         <div className="vaultTrustRow" aria-label="Vault guarantees">
           <span><i />Your keys stay in your wallet</span>
