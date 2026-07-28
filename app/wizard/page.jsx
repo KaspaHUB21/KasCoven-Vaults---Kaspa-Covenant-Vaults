@@ -78,6 +78,22 @@ export default function WizardPage() {
     }
   }
 
+  async function disconnectWallet() {
+    try {
+      if (walletName === "Kaspire" && typeof wallet?.disconnect === "function") {
+        await wallet.disconnect();
+      }
+    } catch (error) {
+      setCreateState({ error: error?.message || String(error) });
+    } finally {
+      setWallet(null);
+      setWalletName("");
+      setAddress("");
+      setPublicKey("");
+      setWalletMenuOpen(false);
+    }
+  }
+
   async function loadVaults() {
     try {
       const data = await readResponse(await fetch("/api/timelock-vault?action=wizard-list", { cache: "no-store" }));
@@ -187,6 +203,7 @@ export default function WizardPage() {
               <button type="button" onClick={connectWithKasware}><strong>Kasware</strong><span>Browser extension</span></button>
             </div>
           ) : null}
+          {address ? <button className="wizardDisconnect" type="button" onClick={disconnectWallet}>Disconnect</button> : null}
         </div>
       </header>
 

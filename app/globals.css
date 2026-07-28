@@ -1315,8 +1315,9 @@ body {
   box-shadow: 0 0 22px rgba(151, 119, 255, 0.24);
 }
 .wizardBrand strong { color: #ae91ff; }
-.wizardWallet { position: relative; }
+.wizardWallet { position: relative; display: flex; align-items: center; gap: 8px; }
 .wizardWallet > button { min-width: 180px; border-radius: 999px; }
+.wizardWallet > .wizardDisconnect { min-width: 0; color: var(--muted); }
 .wizardWalletMenu {
   position: absolute;
   top: calc(100% + 8px);
@@ -1407,6 +1408,8 @@ body {
   .wizardHeader { padding: 9px 12px; }
   .wizardBrand span { font-size: 0.9rem; }
   .wizardWallet > button { min-width: 0; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wizardWallet > .wizardDisconnect { width: 42px; padding: 0; color: transparent; font-size: 0; }
+  .wizardWallet > .wizardDisconnect::before { content: "×"; color: var(--text); font-size: 1.35rem; }
   .wizardWalletMenu { position: fixed; top: 66px; right: 10px; left: 10px; width: auto; }
   .wizardHero { padding: 60px 2px 42px; }
   .wizardHero h1 { font-size: clamp(2.8rem, 15vw, 4.5rem); }
