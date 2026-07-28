@@ -8,6 +8,7 @@ const ACTIVE_TIME_LOCK_STORAGE_PREFIX = "kaslab-active-time-lock-vault:";
 const ACTIVE_DMS_STORAGE_PREFIX = "kaslab-active-dms-vault:";
 const RECOVERY_PROTOCOL = "kascoven-vault-recovery-v1";
 const VAULT_PROTOCOL = "kaslab-time-lock-vault-v1";
+const LAST_WALLET_STORAGE_KEY = "kascoven:last-wallet";
 
 function providerSummary(provider) {
   if (!provider) return null;
@@ -386,24 +387,60 @@ export function KasCovenVaults({ recoveryMode = false }) {
 
   useEffect(() => {
     let cancelled = false;
-    async function restoreWalletSession() {
-      try {
-        const kaspire = await restoreKaspire();
-        if (!kaspire || cancelled) return;
-        const accounts = await kaspire.requestAccounts();
-        const publicKey = await kaspire.getPublicKey();
-        if (cancelled) return;
-        const nextReport = { connected: true, accounts, publicKey, walletName: "Kaspire", summary: providerSummary(kaspire) };
-        setActiveProvider(kaspire);
-        setReport(nextReport);
-        const address = getAccountAddress(nextReport);
-        restoreActiveTimeLockVault(address);
-        restoreActiveDmsVault(address);
+
+    async function applyRestoredWallet(walletName, wallet, accounts, publicKey) {
+      if (cancelled || !Array.isArray(accounts) || !accounts.length) return false;
+      const nextReport = { connected: true, accounts, publicKey, walletName, summary: providerSummary(wallet) };
+      setActiveProvider(wallet);
+      setReport(nextReport);
+      const address = getAccountAddress(nextReport);
+      restoreActiveTimeLockVault(address);
+      const restoredDms = restoreActiveDmsVault(address);
+      await restoreActiveTimeLockVaultFromChain(address);
+      const ownerDmsFound = await scanDmsVaultsForOwner(address);
+      if (!restoredDms && !ownerDmsFound) {
+        await scanDmsVaultsForBeneficiary(address, { silent: true });
+      }
+      if (!cancelled) {
+        window.localStorage.setItem(LAST_WALLET_STORAGE_KEY, walletName.toLowerCase());
         setStatus("");
+      }
+      return !cancelled;
+    }
+
+    async function restoreKasware() {
+      const kasware = window.kasware;
+      if (!kasware || typeof kasware.getAccounts !== "function") return false;
+      const accounts = await kasware.getAccounts();
+      if (!Array.isArray(accounts) || !accounts.length) return false;
+      const publicKey = typeof kasware.getPublicKey === "function" ? await kasware.getPublicKey().catch(() => null) : null;
+      return applyRestoredWallet("Kasware", kasware, accounts, publicKey);
+    }
+
+    async function restoreWalletSession() {
+      const preferred = window.localStorage.getItem(LAST_WALLET_STORAGE_KEY);
+      try {
+        if (preferred === "kasware") {
+          await new Promise((resolve) => window.setTimeout(resolve, 250));
+          if (await restoreKasware()) return;
+        }
+
+        const kaspire = await restoreKaspire();
+        if (kaspire) {
+          const accounts = await kaspire.requestAccounts();
+          const publicKey = await kaspire.getPublicKey().catch(() => null);
+          if (await applyRestoredWallet("Kaspire", kaspire, accounts, publicKey)) return;
+        }
+
+        if (preferred !== "kaspire") {
+          await new Promise((resolve) => window.setTimeout(resolve, 250));
+          await restoreKasware();
+        }
       } catch (error) {
-        if (!cancelled) setStatus(error?.message || "Could not restore the Kaspire session.");
+        if (!cancelled) setStatus(error?.message || "Could not restore the wallet session.");
       }
     }
+
     restoreWalletSession();
     return () => { cancelled = true; };
   }, []);
@@ -491,6 +528,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
         const publicKey = typeof kasware.getPublicKey === "function" ? await kasware.getPublicKey().catch(() => null) : null;
         const nextReport = { connected: true, accounts, publicKey, walletName: "Kasware", summary: providerSummary(kasware) };
         setReport(nextReport);
+        window.localStorage.setItem(LAST_WALLET_STORAGE_KEY, "kasware");
         const address = getAccountAddress(nextReport);
         restoreActiveTimeLockVault(address);
         const restoredDms = restoreActiveDmsVault(address);
@@ -529,6 +567,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
       const publicKey = await kaspire.getPublicKey();
       const nextReport = { connected: true, accounts, publicKey, walletName: "Kaspire", summary: providerSummary(kaspire) };
       setReport(nextReport);
+      window.localStorage.setItem(LAST_WALLET_STORAGE_KEY, "kaspire");
       setPairing(null);
       setStatus("");
       const address = getAccountAddress(nextReport);
@@ -566,6 +605,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
   async function disconnect() {
     setStatus("");
     await provider?.disconnect?.().catch(() => null);
+    window.localStorage.removeItem(LAST_WALLET_STORAGE_KEY);
     setActiveProvider(null);
     setReport({ connected: false, accounts: [], summary: providerSummary(provider) });
     setShowMyVaults(false);
