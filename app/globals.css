@@ -1177,6 +1177,19 @@ body {
 .processHeader { padding-bottom: 18px; border-bottom: 1px solid rgba(73, 234, 217, 0.1); }
 .processHeader h2 { letter-spacing: -0.035em; }
 .vaultField input, .vaultSelect { border-color: rgba(73, 234, 217, 0.18); border-radius: 11px; background: rgba(3, 10, 9, 0.7); }
+.vaultField input[readonly] { color: var(--kaspa-soft); background: rgba(73, 234, 217, 0.06); }
+.vaultDaaEstimate {
+  display: grid;
+  gap: 4px;
+  padding: 13px 14px;
+  border: 1px solid rgba(73, 234, 217, 0.14);
+  border-radius: 11px;
+  color: var(--muted);
+  background: rgba(73, 234, 217, 0.045);
+  font-size: 0.82rem;
+}
+.vaultDaaEstimate strong { color: var(--kaspa-soft); font-size: 0.92rem; }
+.vaultDaaEstimate small { line-height: 1.45; }
 .stepCard, .releaseSection, .statusNotice, .infoTile { border-color: rgba(73, 234, 217, 0.12); border-radius: 14px; background: rgba(4, 12, 11, 0.56); }
 .stepCard { padding: 18px; }
 .stepCard span { width: 30px; height: 30px; border: 0; font-size: 0.78rem; }
