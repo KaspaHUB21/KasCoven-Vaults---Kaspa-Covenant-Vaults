@@ -1,0 +1,5 @@
+node_modules
+.next
+.toccata-mini-test
+.env*.local
+*.log

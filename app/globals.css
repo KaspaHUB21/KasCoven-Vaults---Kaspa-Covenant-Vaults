@@ -1,0 +1,922 @@
+:root {
+  --bg: #030707;
+  --panel: rgba(8, 18, 20, 0.82);
+  --panel-strong: rgba(10, 27, 29, 0.94);
+  --line: rgba(73, 234, 217, 0.28);
+  --line-strong: rgba(73, 234, 217, 0.62);
+  --kaspa: #49ead9;
+  --kaspa-soft: #70f5c8;
+  --orange: #ff8a20;
+  --text: #eefcff;
+  --muted: rgba(238, 252, 255, 0.7);
+  --danger: #ffb067;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+  color-scheme: dark;
+}
+
+body {
+  color: var(--text);
+  background:
+    radial-gradient(circle at 18% 12%, rgba(73, 234, 217, 0.18), transparent 32%),
+    radial-gradient(circle at 86% 10%, rgba(255, 138, 32, 0.12), transparent 28%),
+    linear-gradient(180deg, #04100f 0%, #05080b 48%, #030707 100%);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  min-height: 44px;
+  max-width: 100%;
+  touch-action: manipulation;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    linear-gradient(135deg, rgba(73, 234, 217, 0.2), rgba(5, 13, 15, 0.92));
+  box-shadow: 0 0 18px rgba(73, 234, 217, 0.1);
+  cursor: pointer;
+  font-weight: 850;
+}
+
+button:hover,
+button:focus-visible {
+  border-color: var(--line-strong);
+  outline: none;
+  box-shadow: 0 0 26px rgba(73, 234, 217, 0.22);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.vaultPage {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: 28px clamp(16px, 4vw, 52px) 34px;
+  isolation: isolate;
+}
+
+.vaultPage::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(rgba(73, 234, 217, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(73, 234, 217, 0.03) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: linear-gradient(to bottom, black 0%, transparent 76%);
+}
+
+.vaultHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  width: min(1240px, 100%);
+  margin: 0 auto 26px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, rgba(73, 234, 217, 0.12), rgba(255, 138, 32, 0.06)),
+    rgba(2, 8, 9, 0.68);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.36),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(12px);
+}
+
+.titleButton {
+  width: fit-content;
+  min-height: 0;
+  margin: 0 0 10px;
+  padding: 0;
+  border: 0;
+  color: var(--kaspa);
+  background: transparent;
+  box-shadow: none;
+  font-size: clamp(2.15rem, 5vw, 5rem);
+  font-family: "Orbitron", "Rajdhani", "Eurostile", "Bank Gothic", ui-monospace, monospace;
+  font-weight: 950;
+  line-height: 0.94;
+  letter-spacing: 0;
+  text-shadow:
+    1px 0 0 var(--orange),
+    0 0 22px rgba(73, 234, 217, 0.22),
+    0 0 44px rgba(255, 138, 32, 0.08);
+}
+
+.titleButton:hover,
+.titleButton:focus-visible {
+  color: var(--kaspa-soft);
+  border: 0;
+  box-shadow: none;
+}
+
+.vaultHeader p {
+  max-width: 720px;
+  margin: 0;
+  color: var(--muted);
+  font-size: clamp(1rem, 1.5vw, 1.22rem);
+  line-height: 1.45;
+}
+
+.vaultEyebrow {
+  margin: 0 0 8px;
+  color: var(--kaspa);
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.walletActions {
+  display: grid;
+  grid-template-columns: auto 48px minmax(170px, 220px) minmax(116px, auto);
+  gap: 10px;
+  align-items: center;
+}
+
+.vaultIconButton {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+
+.vaultIconButton svg {
+  width: 34px;
+  height: 34px;
+  filter: drop-shadow(0 0 10px rgba(73, 234, 217, 0.45));
+}
+
+.vaultIconFrame,
+.vaultIconDial,
+.vaultIconSpoke,
+.vaultIconLock {
+  fill: none;
+  stroke: var(--kaspa);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.vaultIconDial {
+  stroke: rgba(73, 234, 217, 0.82);
+}
+
+.vaultIconLock {
+  fill: rgba(73, 234, 217, 0.12);
+  stroke: #cafff8;
+}
+
+.connectWalletButton {
+  overflow: hidden;
+  padding: 0 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recoveryNavLink {
+  min-height: 44px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--kaspa);
+  font-weight: 850;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.recoveryNavLink:hover,
+.recoveryNavLink:focus-visible {
+  border-color: var(--line-strong);
+  outline: none;
+  box-shadow: 0 0 26px rgba(73, 234, 217, 0.22);
+}
+
+.disconnectButton {
+  border-color: rgba(255, 138, 32, 0.38);
+  color: #ffe1c7;
+  background: linear-gradient(135deg, rgba(255, 138, 32, 0.18), rgba(8, 18, 20, 0.94));
+}
+
+.topStatus,
+.myVaultsPanel,
+.processPanel {
+  width: min(1240px, 100%);
+  margin: 0 auto 22px;
+}
+
+.topStatus {
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 138, 32, 0.38);
+  border-radius: 8px;
+  color: #ffe2c7;
+  background: rgba(255, 138, 32, 0.08);
+}
+
+.myVaultsPanel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(4, 12, 13, 0.78);
+}
+
+.myVaultsPanel h2 {
+  margin: 0 0 4px;
+}
+
+.myVaultsPanel p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.myVaultActions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.ownedVaultGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ownedVault {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(73, 234, 217, 0.2);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.ownedVault button {
+  margin-top: 6px;
+}
+
+.recoveryPage {
+  min-height: 100vh;
+  padding: 28px clamp(16px, 4vw, 52px) 34px;
+}
+
+.recoveryHeader,
+.recoveryHero,
+.recoveryGrid,
+.recoveryGuide,
+.cliSection,
+.recoveryWarning {
+  width: min(1120px, 100%);
+  margin-inline: auto;
+}
+
+.recoveryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 34px;
+}
+
+.recoveryBrand {
+  color: var(--kaspa);
+  font-family: "Orbitron", "Rajdhani", "Eurostile", "Bank Gothic", ui-monospace, monospace;
+  font-size: clamp(1.45rem, 3vw, 2.4rem);
+  font-weight: 950;
+  text-decoration: none;
+  text-shadow: 1px 0 0 var(--orange), 0 0 22px rgba(73, 234, 217, 0.22);
+}
+
+.recoveryRepoLink {
+  min-height: 44px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 138, 32, 0.38);
+  border-radius: 8px;
+  color: #ffe1c7;
+  background: linear-gradient(135deg, rgba(255, 138, 32, 0.18), rgba(8, 18, 20, 0.94));
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.recoveryHero {
+  margin-bottom: 24px;
+  padding: clamp(24px, 5vw, 54px);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, rgba(73, 234, 217, 0.13), rgba(255, 138, 32, 0.07)),
+    rgba(2, 8, 9, 0.72);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.36);
+}
+
+.recoveryHero h1 {
+  max-width: 920px;
+  margin: 0 0 16px;
+  color: var(--text);
+  font-size: clamp(2.25rem, 6vw, 5.2rem);
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.recoveryHero p,
+.recoveryGuide p,
+.cliSection p,
+.recoveryWarning p,
+.recoveryPanel p {
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.recoveryHero > p:last-child {
+  max-width: 780px;
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.recoveryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.recoveryPanel,
+.recoveryGuide,
+.cliSection,
+.recoveryWarning {
+  border: 1px solid rgba(73, 234, 217, 0.22);
+  border-radius: 10px;
+  background: rgba(4, 12, 13, 0.78);
+}
+
+.recoveryPanel {
+  padding: 18px;
+}
+
+.recoveryPanel span {
+  color: var(--orange);
+  font-weight: 950;
+}
+
+.recoveryPanel h2,
+.recoveryGuide h2,
+.cliSection h2,
+.recoveryWarning h2 {
+  margin: 8px 0 8px;
+  color: var(--text);
+}
+
+.recoveryPanel p {
+  margin: 0;
+}
+
+.recoveryGuide,
+.cliSection,
+.recoveryWarning {
+  margin-bottom: 24px;
+  padding: clamp(18px, 3vw, 28px);
+}
+
+.recoverySteps {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: recovery-step;
+}
+
+.recoverySteps li {
+  position: relative;
+  padding: 16px 16px 16px 56px;
+  border: 1px solid rgba(73, 234, 217, 0.18);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  counter-increment: recovery-step;
+}
+
+.recoverySteps li::before {
+  content: counter(recovery-step);
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--kaspa);
+  font-weight: 950;
+}
+
+.recoverySteps strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.recoverySteps p {
+  margin: 0;
+}
+
+.cliSection {
+  display: grid;
+  grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.terminalPanel {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgba(73, 234, 217, 0.2);
+  border-radius: 8px;
+  background: #010505;
+  box-shadow: inset 0 0 26px rgba(73, 234, 217, 0.08);
+}
+
+.terminalPanel code {
+  display: block;
+  overflow-wrap: anywhere;
+  color: #cafff8;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.recoveryWarning {
+  border-color: rgba(255, 138, 32, 0.34);
+  background: rgba(255, 138, 32, 0.08);
+}
+
+.ownedVault code {
+  overflow: hidden;
+  color: var(--kaspa);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ownedVault span,
+.ownedVault small,
+.emptyVaults {
+  color: var(--muted);
+}
+
+.vaultHeroCards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 22px;
+  width: min(1240px, 100%);
+  margin: 0 auto 24px;
+}
+
+.vaultChoice {
+  display: grid;
+  grid-template-rows: auto auto;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(73, 234, 217, 0.24);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(73, 234, 217, 0.08), rgba(5, 9, 10, 0.96)),
+    var(--panel);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+}
+
+.vaultChoice.isSelected {
+  border-color: var(--line-strong);
+  box-shadow:
+    0 0 34px rgba(73, 234, 217, 0.22),
+    0 24px 70px rgba(0, 0, 0, 0.38);
+}
+
+.vaultChoice img {
+  width: 100%;
+  height: clamp(260px, 32vw, 440px);
+  max-height: 52vh;
+  padding: 16px;
+  object-fit: contain;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(73, 234, 217, 0.2), transparent 48%),
+    #010404;
+}
+
+.vaultChoice div {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 20px;
+}
+
+.vaultChoice h2,
+.processHeader h2 {
+  margin: 0;
+  font-size: clamp(1.45rem, 2vw, 2.35rem);
+  letter-spacing: 0;
+}
+
+.vaultChoice p,
+.processHeader p,
+.stepCard p,
+.releaseSection p,
+.statusNotice p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.vaultChoice button,
+.stepCard button,
+.actionPair button {
+  width: 100%;
+}
+
+.processPanel {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid rgba(73, 234, 217, 0.3);
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, rgba(73, 234, 217, 0.08), rgba(255, 138, 32, 0.05)),
+    rgba(3, 9, 10, 0.86);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.34);
+}
+
+.processHeader {
+  display: grid;
+  gap: 6px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.vaultField {
+  display: grid;
+  gap: 8px;
+  color: var(--text);
+  font-weight: 850;
+}
+
+.vaultField.wide {
+  grid-column: 1 / -1;
+}
+
+.vaultField input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid rgba(73, 234, 217, 0.38);
+  border-radius: 8px;
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.34);
+}
+
+.vaultSelect {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(73, 234, 217, 0.38);
+  border-radius: 8px;
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.44);
+  font: inherit;
+  font-weight: 800;
+}
+
+.vaultSelect:focus {
+  border-color: var(--kaspa);
+  outline: none;
+  box-shadow: 0 0 18px rgba(73, 234, 217, 0.16);
+}
+
+.vaultField input:focus {
+  border-color: var(--kaspa);
+  outline: none;
+  box-shadow: 0 0 18px rgba(73, 234, 217, 0.16);
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-weight: 750;
+}
+
+.toggleRow input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--kaspa);
+}
+
+.stepGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.stepCard,
+.releaseSection,
+.statusNotice {
+  border: 1px solid rgba(73, 234, 217, 0.22);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.stepCard {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  align-content: start;
+  padding: 16px;
+}
+
+.stepCard span {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: #021111;
+  background: var(--kaspa);
+  font-weight: 950;
+}
+
+.stepCard h3,
+.releaseSection h3 {
+  margin: 0;
+}
+
+.releaseSection {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 360px);
+  gap: 18px;
+  align-items: center;
+  min-width: 0;
+  padding: 18px;
+}
+
+.actionPair {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.statusNotice {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+  padding: 16px;
+}
+
+.statusNotice.isLoading {
+  color: var(--kaspa);
+}
+
+.statusNotice.isSuccess {
+  border-color: rgba(112, 245, 200, 0.36);
+}
+
+.statusNotice.isError {
+  border-color: rgba(255, 138, 32, 0.48);
+}
+
+.statusNotice > strong {
+  color: var(--text);
+  font-size: 1.08rem;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.infoTile {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(73, 234, 217, 0.18);
+  border-radius: 8px;
+  background: rgba(73, 234, 217, 0.05);
+}
+
+.infoTile span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.infoTile strong {
+  overflow: hidden;
+  color: var(--kaspa-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.debugDetails {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 4px;
+}
+
+.debugDetails summary {
+  color: var(--kaspa);
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.debugDetails pre {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-height: 260px;
+  margin: 10px 0 0;
+  padding: 12px;
+  border: 1px solid rgba(73, 234, 217, 0.18);
+  border-radius: 8px;
+  color: #d8fffa;
+  background: rgba(0, 0, 0, 0.44);
+}
+
+.vaultFooter {
+  width: min(1240px, 100%);
+  margin: 28px auto 0;
+  padding: 22px 0 4px;
+  text-align: center;
+  font-size: clamp(1.35rem, 2.6vw, 2.4rem);
+  font-weight: 950;
+  color: var(--kaspa);
+  text-shadow:
+    1px 0 0 var(--orange),
+    0 0 18px rgba(73, 234, 217, 0.34),
+    0 0 28px rgba(255, 138, 32, 0.16);
+}
+
+.vaultFooterLink {
+  display: block;
+  margin: -22px 0 -4px;
+  padding: 22px 0 4px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.vaultFooterLink:focus-visible {
+  outline: 2px solid var(--kaspa);
+  outline-offset: 5px;
+}
+
+@media (max-width: 920px) {
+  .vaultHeader,
+  .releaseSection {
+    grid-template-columns: 1fr;
+  }
+
+  .vaultHeader {
+    display: grid;
+  }
+
+  .walletActions,
+  .vaultHeroCards,
+  .ownedVaultGrid,
+  .stepGrid,
+  .formGrid,
+  .infoGrid,
+  .recoveryGrid,
+  .cliSection {
+    grid-template-columns: 1fr;
+  }
+
+  .walletActions {
+    width: 100%;
+  }
+
+  .vaultChoice {
+    grid-template-rows: auto auto;
+  }
+
+  .vaultChoice img {
+    height: clamp(220px, 62vw, 360px);
+    max-height: 44vh;
+  }
+}
+
+@media (max-width: 560px) {
+  .vaultPage {
+    padding-inline: 12px;
+  }
+
+  .recoveryPage {
+    padding-inline: 12px;
+  }
+
+  .recoveryHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .vaultHeader,
+  .processPanel,
+  .recoveryHero,
+  .recoveryGuide,
+  .cliSection,
+  .recoveryWarning {
+    padding: 16px;
+  }
+
+  .walletActions {
+    grid-template-columns: 44px 1fr;
+  }
+
+  .recoveryNavLink {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .disconnectButton {
+    grid-column: 1 / -1;
+  }
+}
+
+.walletConnectMenu { position: relative; }
+.walletConnectDropdown {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 30;
+  display: grid; width: 240px; padding: 8px; gap: 6px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: rgba(3, 12, 14, 0.98); box-shadow: 0 18px 48px rgba(0,0,0,.5);
+}
+.walletConnectDropdown button { display: grid; gap: 2px; text-align: left; padding: 12px; }
+.walletConnectDropdown span { color: var(--muted); font-size: 12px; }
+.pairingOverlay {
+  position: fixed; inset: 0; z-index: 100; display: grid; place-items: center;
+  padding: 20px; background: rgba(0, 5, 7, .82); backdrop-filter: blur(10px);
+}
+.pairingCard {
+  position: relative; display: grid; justify-items: center; gap: 14px;
+  width: min(420px, 100%); padding: 28px; border: 1px solid var(--line);
+  border-radius: 14px; background: #061214; text-align: center;
+}
+.pairingCard h2, .pairingCard p { margin: 0; }
+.pairingCard p { color: var(--muted); }
+.pairingCard img { width: min(320px, 100%); border-radius: 10px; }
+.pairingCard a { display: inline-flex; align-items: center; min-height: 42px; text-decoration: none; }
+.pairingClose { position: absolute; top: 8px; right: 8px; width: 36px; height: 36px; padding: 0; font-size: 24px; }
+
+.kaspireActionPrompt {
+  position: fixed;
+  z-index: 1200;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  width: min(460px, calc(100% - 24px));
+  transform: translateX(-50%);
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--accent);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, .45);
+}
+.kaspireActionPrompt p { margin: 0; color: var(--muted); }
+.kaspireActionPrompt span { color: var(--muted); font-size: .85rem; }
+.kaspireActionPrompt a { justify-content: center; text-decoration: none; }
