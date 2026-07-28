@@ -1048,7 +1048,7 @@ body {
 }
 
 .walletActions {
-  grid-template-columns: auto 44px minmax(150px, 210px) auto;
+  grid-template-columns: auto auto 44px minmax(150px, 210px) auto;
   gap: 8px;
 }
 
@@ -1277,4 +1277,141 @@ body {
     line-height: 1.08;
     white-space: nowrap;
   }
+}
+
+/* Permissionless prize vault wizard */
+.wizardPage {
+  min-height: 100vh;
+  overflow: hidden;
+  padding: 0 24px 40px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(125, 89, 255, 0.2), transparent 34%),
+    radial-gradient(circle at 84% 28%, rgba(73, 234, 217, 0.12), transparent 24%),
+    #06100e;
+}
+
+.wizardHeader {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  padding: 11px max(24px, calc((100vw - 1180px) / 2));
+  border-bottom: 1px solid rgba(151, 119, 255, 0.25);
+  background: rgba(6, 16, 14, 0.9);
+  backdrop-filter: blur(18px);
+}
+
+.wizardBrand { display: flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; font-size: 1.06rem; font-weight: 900; }
+.wizardBrand img {
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(151, 119, 255, 0.5);
+  border-radius: 12px;
+  object-fit: cover;
+  box-shadow: 0 0 22px rgba(151, 119, 255, 0.24);
+}
+.wizardBrand strong { color: #ae91ff; }
+.wizardWallet { position: relative; }
+.wizardWallet > button { min-width: 180px; border-radius: 999px; }
+.wizardWalletMenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  display: grid;
+  width: 240px;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid rgba(151, 119, 255, 0.35);
+  border-radius: 12px;
+  background: #071311;
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.5);
+}
+.wizardWalletMenu button { display: grid; gap: 2px; padding: 12px; text-align: left; }
+.wizardWalletMenu span { color: var(--muted); font-size: 0.75rem; }
+.wizardHero { width: min(1000px, 100%); margin: 0 auto; padding: clamp(70px, 10vw, 130px) 0 clamp(44px, 7vw, 82px); text-align: center; }
+.wizardHero h1 {
+  max-width: 940px;
+  margin: 14px auto 22px;
+  font-size: clamp(3rem, 7.5vw, 6.8rem);
+  line-height: 0.94;
+  letter-spacing: -0.065em;
+  background: linear-gradient(110deg, #f5f1ff 5%, #aa8aff 48%, var(--kaspa) 100%);
+  background-clip: text;
+  color: transparent;
+}
+.wizardHero > p:last-child { max-width: 720px; margin: 0 auto; color: var(--muted); font-size: clamp(1rem, 1.8vw, 1.18rem); line-height: 1.65; }
+.wizardCreate,
+.wizardBoard {
+  width: min(1180px, 100%);
+  margin: 0 auto 18px;
+  padding: clamp(20px, 3vw, 34px);
+  border: 1px solid rgba(151, 119, 255, 0.22);
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(21, 23, 38, 0.94), rgba(7, 20, 17, 0.95));
+  box-shadow: 0 22px 64px rgba(0, 0, 0, 0.3);
+}
+.wizardCreate { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(360px, 1.2fr); gap: clamp(24px, 5vw, 64px); align-items: center; }
+.wizardCreate h2, .wizardBoard h2 { margin: 8px 0 12px; font-size: clamp(1.8rem, 4vw, 3.1rem); letter-spacing: -0.045em; }
+.wizardCreate > div > p:last-child { color: var(--muted); line-height: 1.6; }
+.wizardIrreversible { padding: 12px; border-left: 3px solid #aa8aff; color: #d7ccff !important; background: rgba(151, 119, 255, 0.08); }
+.wizardForm { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.wizardForm label { display: grid; gap: 7px; color: var(--muted); font-size: 0.8rem; font-weight: 800; }
+.wizardForm label:first-child { grid-column: 1 / -1; }
+.wizardForm input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 13px;
+  border: 1px solid rgba(151, 119, 255, 0.25);
+  border-radius: 11px;
+  color: var(--text);
+  background: rgba(2, 9, 9, 0.72);
+}
+.wizardForm > button { grid-column: 1 / -1; min-height: 48px; border-color: rgba(151, 119, 255, 0.55); border-radius: 999px; }
+.wizardBoardHeading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.wizardBoardHeading button { border-radius: 999px; }
+.wizardPrizeGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 24px; }
+.wizardPrize {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid rgba(151, 119, 255, 0.24);
+  border-radius: 16px;
+  background: rgba(6, 13, 16, 0.72);
+}
+.wizardPrize.isReady { border-color: rgba(73, 234, 217, 0.55); box-shadow: inset 0 0 30px rgba(73, 234, 217, 0.06); }
+.wizardPrizeStatus { color: #bca8ff; font-size: 0.7rem; font-weight: 950; letter-spacing: 0.12em; }
+.wizardPrize.isReady .wizardPrizeStatus { color: var(--kaspa); }
+.wizardPrize h3 { margin: 0; overflow-wrap: anywhere; font-size: 1.2rem; }
+.wizardAmount { color: var(--kaspa-soft); font-size: clamp(1.8rem, 4vw, 2.7rem); letter-spacing: -0.04em; }
+.wizardClock { color: #c8b9ff; font-family: ui-monospace, monospace; font-size: 1.25rem; font-weight: 900; }
+.wizardPrize p { margin: 0; overflow-wrap: anywhere; color: var(--muted); font-size: 0.82rem; }
+.wizardPrize button { margin-top: auto; border-radius: 999px; }
+.wizardSuccess { grid-column: 1 / -1; margin: 0; overflow-wrap: anywhere; color: var(--kaspa-soft) !important; }
+.wizardError { grid-column: 1 / -1; margin: 0; overflow-wrap: anywhere; color: #ff9d91 !important; }
+.wizardEmpty { padding: 30px 0 10px; color: var(--muted); text-align: center; }
+
+@media (max-width: 820px) {
+  .wizardCreate { grid-template-columns: 1fr; }
+  .wizardPrizeGrid { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 620px) {
+  .wizardPage { padding-inline: 12px; }
+  .wizardHeader { padding: 9px 12px; }
+  .wizardBrand span { font-size: 0.9rem; }
+  .wizardWallet > button { min-width: 0; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wizardWalletMenu { position: fixed; top: 66px; right: 10px; left: 10px; width: auto; }
+  .wizardHero { padding: 60px 2px 42px; }
+  .wizardHero h1 { font-size: clamp(2.8rem, 15vw, 4.5rem); }
+  .wizardForm { grid-template-columns: 1fr; }
+  .wizardForm label:first-child, .wizardForm > button { grid-column: auto; }
+  .wizardPrizeGrid { grid-template-columns: 1fr; }
+  .wizardBoardHeading { align-items: flex-start; flex-direction: column; }
 }

@@ -131,6 +131,43 @@ function makeTimeLockVault(kaspa, unlockTime, ownerAddress) {
   };
 }
 
+function makeWizardVault(kaspa, unlockTime) {
+  const builder = new kaspa.ScriptBuilder();
+  builder.addLockTime(BigInt(unlockTime));
+  builder.addOp(kaspa.Opcodes.OpCheckLockTimeVerify);
+
+  builder.addOp(kaspa.Opcodes.OpTxInputCount);
+  builder.addI64(1n);
+  builder.addOp(kaspa.Opcodes.OpNumEqualVerify);
+
+  builder.addOp(kaspa.Opcodes.OpTxOutputCount);
+  builder.addI64(1n);
+  builder.addOp(kaspa.Opcodes.OpNumEqualVerify);
+
+  builder.addI64(0n);
+  builder.addOp(kaspa.Opcodes.OpTxOutputAmount);
+  builder.addOp(kaspa.Opcodes.OpTxInputIndex);
+  builder.addOp(kaspa.Opcodes.OpTxInputAmount);
+  builder.addI64(KEYLESS_MAX_FEE_SOMPI);
+  builder.addOp(kaspa.Opcodes.OpSub);
+  builder.addOp(kaspa.Opcodes.OpGreaterThanOrEqual);
+  builder.addOp(kaspa.Opcodes.OpVerify);
+
+  builder.addOp(kaspa.Opcodes.OpTrue);
+  const redeemScript = builder.toString();
+  const scriptPublicKey = builder.createPayToScriptHashScript();
+  const address = kaspa.addressFromScriptPublicKey(scriptPublicKey, "mainnet").toString();
+
+  return {
+    address,
+    unlockTime: String(unlockTime),
+    maxFeeSompi: KEYLESS_MAX_FEE_SOMPI.toString(),
+    redeemScript,
+    unlockScript: builder.encodePayToScriptHashSignatureScript(""),
+    scriptPublicKey: scriptPublicKey.toJSON(),
+  };
+}
+
 function makeDeadManSwitchVault(kaspa, inactivityDaaBlocks, beneficiaryAddress, ownerPublicKey) {
   if (!beneficiaryAddress?.startsWith("kaspa:")) {
     throw new Error("A valid beneficiary Kaspa address is required for dead-man-switch vaults.");
@@ -464,6 +501,111 @@ async function createVaultDraft(kaspa, searchParams) {
     estimatedFeeKas: (Number(fee) / 100000000).toString(),
     changeAmountSompi: changeAmount.toString(),
     changeAmountKas: (Number(changeAmount) / 100000000).toString(),
+    tx: JSON.parse(transaction.serializeToSafeJSON()),
+    txJson: transaction.serializeToSafeJSON(),
+  });
+}
+
+async function createWizardVaultDraft(kaspa, searchParams) {
+  const address = searchParams.get("address");
+  const lockSeconds = Math.max(1, Number(searchParams.get("lockSeconds") || DEFAULT_LOCK_SECONDS));
+  const lockAmount = kasToSompi(searchParams.get("amountKas"));
+  const vaultName = cleanVaultName(searchParams.get("vaultName"), "First Come, First Served");
+  const currentBlueScore = await getCurrentBlueScore();
+  const lockDaaBlocks = Math.max(1, Math.ceil(lockSeconds * MAINNET_BLOCKS_PER_SECOND));
+  const unlockTime = currentBlueScore + lockDaaBlocks;
+
+  if (!isValidKaspaAddress(kaspa, address)) {
+    return Response.json({ error: "A valid creator Kaspa address is required." }, { status: 400 });
+  }
+
+  const vault = makeWizardVault(kaspa, unlockTime);
+  const payload = {
+    p: VAULT_PROTOCOL,
+    v: VAULT_PAYLOAD_VERSION,
+    action: "wizard-create",
+    wizardMode: "first-come-first-served",
+    vaultName,
+    ownerAddress: address,
+    vaultAddress: vault.address,
+    unlockTime: String(unlockTime),
+    redeemScript: vault.redeemScript,
+    maxFeeSompi: KEYLESS_MAX_FEE_SOMPI.toString(),
+    lockSeconds,
+    lockDaaBlocks,
+    lockAmountSompi: lockAmount.toString(),
+    createdBlueScore: currentBlueScore,
+    createdAtIso: new Date().toISOString(),
+  };
+  const payloadHex = jsonPayloadHex(payload);
+  const vaultScript = kaspa.payToAddressScript(vault.address);
+  const changeScript = kaspa.payToAddressScript(address);
+  const utxoResponse = await fetch(kaspaApiUrl(`/addresses/${address}/utxos`), { cache: "no-store" });
+  if (!utxoResponse.ok) throw new Error("Kaspa UTXO API returned an error for the creator wallet.");
+
+  const selected = pickSpendableUtxo(await utxoResponse.json(), lockAmount + MIN_RETURN_SOMPI);
+  if (!selected) {
+    return Response.json({ error: "Not enough spendable KAS for this special vault." }, { status: 400 });
+  }
+
+  const outpoint = selected.outpoint;
+  const utxoEntry = selected.utxoEntry;
+  const amount = asBigInt(utxoEntry.amount);
+  const input = {
+    previousOutpoint: outpoint,
+    sequence: 0n,
+    sigOpCount: 1,
+    utxo: {
+      address,
+      outpoint,
+      amount,
+      scriptPublicKey: makeScriptPublicKey(kaspa, utxoEntry.scriptPublicKey),
+      blockDaaScore: asBigInt(utxoEntry.blockDaaScore),
+      isCoinbase: Boolean(utxoEntry.isCoinbase),
+    },
+  };
+  const provisional = new kaspa.Transaction({
+    version: 0,
+    inputs: [input],
+    outputs: [new kaspa.TransactionOutput(lockAmount, vaultScript)],
+    lockTime: 0n,
+    gas: 0n,
+    payload: payloadHex,
+    subnetworkId: "0000000000000000000000000000000000000000",
+  });
+  const fee = estimateFee(kaspa, provisional);
+  const changeAmount = amount - lockAmount - fee;
+  if (changeAmount < MIN_RETURN_SOMPI) {
+    return Response.json({ error: "Not enough spendable KAS after the network fee." }, { status: 400 });
+  }
+
+  const transaction = new kaspa.Transaction({
+    version: 0,
+    inputs: [input],
+    outputs: [
+      new kaspa.TransactionOutput(lockAmount, vaultScript),
+      new kaspa.TransactionOutput(changeAmount, changeScript),
+    ],
+    lockTime: 0n,
+    gas: 0n,
+    payload: payloadHex,
+    subnetworkId: "0000000000000000000000000000000000000000",
+  });
+
+  return Response.json({
+    status: "First-come-first-served vault transaction ready",
+    address,
+    vaultName,
+    vault,
+    payload,
+    currentBlueScore,
+    lockDaaBlocks,
+    lockSeconds,
+    lockAmountSompi: lockAmount.toString(),
+    lockAmountKas: (Number(lockAmount) / 100000000).toString(),
+    estimatedUnlockTimeIso: new Date(Date.now() + lockSeconds * 1000).toISOString(),
+    estimatedFeeSompi: fee.toString(),
+    changeAmountSompi: changeAmount.toString(),
     tx: JSON.parse(transaction.serializeToSafeJSON()),
     txJson: transaction.serializeToSafeJSON(),
   });
@@ -1338,6 +1480,149 @@ async function getVaultStatus(searchParams) {
   });
 }
 
+async function listWizardVaults(kaspa) {
+  const records = await findIndexedVaults({});
+  const currentBlueScore = await getCurrentBlueScore();
+  const vaults = [];
+
+  for (const record of records) {
+    const payload = record.payload;
+    if (payload?.action !== "wizard-create" || !payload.unlockTime) continue;
+
+    const vault = makeWizardVault(kaspa, payload.unlockTime);
+    if (vault.address !== payload.vaultAddress || vault.redeemScript !== payload.redeemScript) continue;
+
+    const response = await fetch(kaspaApiUrl(`/addresses/${vault.address}/utxos`), { cache: "no-store" });
+    if (!response.ok) continue;
+    const selected = pickSpendableUtxo(await response.json());
+    if (!selected) continue;
+
+    const amount = asBigInt(selected.utxoEntry.amount);
+    const remainingDaaBlocks = Math.max(0, Number(payload.unlockTime) - currentBlueScore);
+    vaults.push({
+      deployTxId: record.deployTxId,
+      vaultName: payload.vaultName || "First Come, First Served",
+      ownerAddress: payload.ownerAddress,
+      vault,
+      selectedOutpoint: selected.outpoint,
+      amountSompi: amount.toString(),
+      amountKas: (Number(amount) / 100000000).toString(),
+      lockSeconds: Number(payload.lockSeconds || 0),
+      unlockTime: String(payload.unlockTime),
+      currentBlueScore,
+      remainingDaaBlocks,
+      estimatedRemainingSeconds: Math.ceil(remainingDaaBlocks / MAINNET_BLOCKS_PER_SECOND),
+      readyToClaim: remainingDaaBlocks === 0,
+      createdAtIso: payload.createdAtIso || null,
+    });
+  }
+
+  vaults.sort((a, b) => Number(a.unlockTime) - Number(b.unlockTime));
+  return Response.json({ count: vaults.length, currentBlueScore, vaults });
+}
+
+async function createWizardClaimDraft(kaspa, searchParams) {
+  const recipientAddress = searchParams.get("recipientAddress");
+  const vaultAddress = searchParams.get("vaultAddress");
+  const unlockTime = searchParams.get("unlockTime");
+  const redeemScript = String(searchParams.get("redeemScript") || "").replace(/^0x/i, "");
+  const outpointTxId = searchParams.get("outpointTxId");
+  const outpointIndex = searchParams.get("outpointIndex");
+
+  if (!isValidKaspaAddress(kaspa, recipientAddress)) {
+    return Response.json({ error: "Connect the Kaspa wallet that should receive the prize." }, { status: 400 });
+  }
+  if (!vaultAddress?.startsWith("kaspa:") || !unlockTime || !redeemScript) {
+    return Response.json({ error: "Vault address, unlock time and redeem script are required." }, { status: 400 });
+  }
+
+  const vault = makeWizardVault(kaspa, unlockTime);
+  if (vault.address !== vaultAddress || vault.redeemScript !== redeemScript) {
+    return Response.json({ error: "Special vault covenant data does not match its address." }, { status: 400 });
+  }
+
+  const currentBlueScore = await getCurrentBlueScore();
+  const remainingDaaBlocks = Math.max(0, Number(unlockTime) - currentBlueScore);
+  if (remainingDaaBlocks > 0) {
+    return Response.json({
+      error: "This special vault is still locked.",
+      currentBlueScore,
+      remainingDaaBlocks,
+      estimatedRemainingSeconds: Math.ceil(remainingDaaBlocks / MAINNET_BLOCKS_PER_SECOND),
+    }, { status: 400 });
+  }
+
+  const response = await fetch(kaspaApiUrl(`/addresses/${vaultAddress}/utxos`), { cache: "no-store" });
+  if (!response.ok) throw new Error("Kaspa UTXO API returned an error for the special vault.");
+  const selected = pickVaultUtxo(await response.json(), outpointTxId, outpointIndex);
+  if (!selected) {
+    return Response.json({ error: "The prize has already been claimed or is not indexed yet." }, { status: 409 });
+  }
+
+  const outpoint = selected.outpoint;
+  const utxoEntry = selected.utxoEntry;
+  const amount = asBigInt(utxoEntry.amount);
+  const input = {
+    previousOutpoint: outpoint,
+    sequence: 0n,
+    sigOpCount: 0,
+    computeBudget: 1000,
+    signatureScript: vault.unlockScript,
+    utxo: {
+      address: vaultAddress,
+      outpoint,
+      amount,
+      scriptPublicKey: makeScriptPublicKey(kaspa, utxoEntry.scriptPublicKey),
+      blockDaaScore: asBigInt(utxoEntry.blockDaaScore),
+      isCoinbase: Boolean(utxoEntry.isCoinbase),
+    },
+  };
+  const recipientScript = kaspa.payToAddressScript(recipientAddress);
+  const provisional = new kaspa.Transaction({
+    version: 1,
+    inputs: [input],
+    outputs: [new kaspa.TransactionOutput(amount - MIN_RETURN_SOMPI, recipientScript)],
+    lockTime: BigInt(unlockTime),
+    gas: 0n,
+    payload: "",
+    subnetworkId: "0000000000000000000000000000000000000000",
+  });
+  const fee = estimateFee(kaspa, provisional);
+  if (fee > KEYLESS_MAX_FEE_SOMPI) {
+    return Response.json({ error: "Estimated fee exceeds the covenant fee cap." }, { status: 400 });
+  }
+  const prizeAmount = amount - fee;
+  if (prizeAmount <= MIN_RETURN_SOMPI) {
+    return Response.json({ error: "The prize UTXO is too small to claim." }, { status: 400 });
+  }
+
+  const transaction = new kaspa.Transaction({
+    version: 1,
+    inputs: [input],
+    outputs: [new kaspa.TransactionOutput(prizeAmount, recipientScript)],
+    lockTime: BigInt(unlockTime),
+    gas: 0n,
+    payload: "",
+    subnetworkId: "0000000000000000000000000000000000000000",
+  });
+
+  return Response.json({
+    status: "Prize claim transaction ready",
+    recipientAddress,
+    vaultAddress,
+    currentBlueScore,
+    readyToBroadcast: true,
+    selectedOutpoint: outpoint,
+    selectedAmountSompi: amount.toString(),
+    selectedAmountKas: (Number(amount) / 100000000).toString(),
+    estimatedFeeSompi: fee.toString(),
+    prizeAmountSompi: prizeAmount.toString(),
+    prizeAmountKas: (Number(prizeAmount) / 100000000).toString(),
+    tx: JSON.parse(transaction.serializeToSafeJSON()),
+    txJson: transaction.serializeToSafeJSON(),
+  });
+}
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const action = searchParams.get("action") || "create";
@@ -1345,6 +1630,9 @@ export async function GET(request) {
   try {
     const kaspa = loadToccataKaspa();
     if (action === "status") return getVaultStatus(searchParams);
+    if (action === "wizard-create") return createWizardVaultDraft(kaspa, searchParams);
+    if (action === "wizard-list") return listWizardVaults(kaspa);
+    if (action === "wizard-claim") return createWizardClaimDraft(kaspa, searchParams);
     if (action === "scan") return scanActiveVaults(kaspa, searchParams);
     if (action === "dms-create") return createDeadManSwitchDraft(kaspa, searchParams);
     if (action === "dms-scan") return scanDeadManSwitchVaults(kaspa, searchParams);

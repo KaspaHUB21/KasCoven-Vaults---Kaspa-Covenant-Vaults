@@ -6,6 +6,7 @@ KasCoven Vaults is a self-hostable web application for creating, discovering and
 
 - **Time-Locked Vault:** locks KAS until a DAA-score based deadline, after which the owner can release the vault.
 - **Dead Mans Switch:** locks KAS for a beneficiary. The owner can reset the inactivity period with an on-chain heartbeat; after expiry, the beneficiary can claim the current vault UTXO.
+- **Wizard Prize Vault:** locks a public prize until a DAA-score deadline; after expiry anyone may claim it and the first Kaspa-accepted spend wins.
 - **Wallet support:** Kaspire through WalletConnect and Kasware in supported browsers.
 - **Vault discovery:** scans Kaspa transaction history and current UTXOs for vaults associated with an owner or beneficiary.
 - **Portable recovery:** exports protocol metadata without private keys, imports single-vault files or CLI collection exports, and includes a standalone recovery CLI.
@@ -108,6 +109,7 @@ Keep private infrastructure URLs and credentials in deployment environment confi
 - `/` — wallet connection, vault creation, discovery, pulse and release interface
 - `/recovery` — documents independent GitHub self-host recovery and includes CLI instructions
 - `/recovery/tool` — complete Kaspire/Kasware recovery workspace for imports, chain refresh, signing and broadcast
+- `/wizard` — creates and lists permissionless first-come-first-served timer prizes
 - `/api/timelock-vault` — creates, scans and prepares time-lock and dead-mans-switch transactions
 - `/api/covenant-broadcast` — validates/deserializes signed transaction JSON and submits it through Kaspa wRPC
 - `/api/address-public-key` — public-key lookup support
