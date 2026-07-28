@@ -1302,9 +1302,9 @@ export function KasCovenVaults({ recoveryMode = false }) {
       if (!address?.startsWith("kaspa:")) {
         throw new Error("Connect Kasware first so the time-lock test can use your Kaspa address.");
       }
-      if (!Number.isSafeInteger(Number(timeLockUnlockDaaScore)) || Number(timeLockUnlockDaaScore) < currentDaaScore + 6000) {
-        setTimeLockUnlockDaaScore(String(currentDaaScore + 6000));
-        throw new Error("Unlock DAA score must be at least 6,000 DAA ahead (about 10 minutes). The minimum has been selected.");
+      if (!Number.isSafeInteger(Number(timeLockUnlockDaaScore)) || Number(timeLockUnlockDaaScore) <= currentDaaScore) {
+        setTimeLockUnlockDaaScore(String(currentDaaScore + 1));
+        throw new Error("Unlock DAA score must be a whole number in the future.");
       }
 
       setTimeLockCreateResult({
@@ -1331,10 +1331,10 @@ export function KasCovenVaults({ recoveryMode = false }) {
       if (!timeLockCreateResult?.prepared) {
         throw new Error("Prepare a time-locked vault before broadcasting.");
       }
-      if (Number(timeLockCreateResult.draft?.unlockDaaScore || 0) < currentDaaScore + 6000) {
+      if (Number(timeLockCreateResult.draft?.unlockDaaScore || 0) <= currentDaaScore) {
         setTimeLockCreateResult(null);
-        setTimeLockUnlockDaaScore(String(currentDaaScore + 6000));
-        throw new Error("The prepared unlock score is now less than 10 minutes away. Prepare the vault again.");
+        setTimeLockUnlockDaaScore(String(currentDaaScore + 1));
+        throw new Error("The prepared unlock score has already passed. Choose a future DAA score and prepare again.");
       }
 
       if (!provider || typeof provider.signPskt !== "function") {
@@ -1504,9 +1504,9 @@ export function KasCovenVaults({ recoveryMode = false }) {
       if (!parsePositiveKas(dmsAmountKas)) {
         throw new Error("Enter a valid KAS amount greater than 0 before preparing the dead-man-switch.");
       }
-      if (!Number.isSafeInteger(Number(dmsUnlockDaaScore)) || Number(dmsUnlockDaaScore) < currentDaaScore + 6000) {
-        setDmsUnlockDaaScore(String(currentDaaScore + 6000));
-        throw new Error("Initial unlock DAA score must be at least 6,000 DAA ahead (about 10 minutes). The minimum has been selected.");
+      if (!Number.isSafeInteger(Number(dmsUnlockDaaScore)) || Number(dmsUnlockDaaScore) <= currentDaaScore) {
+        setDmsUnlockDaaScore(String(currentDaaScore + 1));
+        throw new Error("Initial unlock DAA score must be a whole number in the future.");
       }
 
       setDmsCreateResult({
@@ -1534,10 +1534,10 @@ export function KasCovenVaults({ recoveryMode = false }) {
       if (!dmsCreateResult?.prepared) {
         throw new Error("Prepare a dead-man-switch vault before broadcasting.");
       }
-      if (Number(dmsCreateResult.draft?.unlockDaaScore || 0) < currentDaaScore + 6000) {
+      if (Number(dmsCreateResult.draft?.unlockDaaScore || 0) <= currentDaaScore) {
         setDmsCreateResult(null);
-        setDmsUnlockDaaScore(String(currentDaaScore + 6000));
-        throw new Error("The prepared initial unlock score is now less than 10 minutes away. Prepare the vault again.");
+        setDmsUnlockDaaScore(String(currentDaaScore + 1));
+        throw new Error("The prepared initial unlock score has already passed. Choose a future DAA score and prepare again.");
       }
 
       if (!provider || typeof provider.signPskt !== "function") {
@@ -2027,11 +2027,11 @@ export function KasCovenVaults({ recoveryMode = false }) {
               Unlock DAA score
               <input
                 type="number"
-                min={currentDaaScore + 6000}
+                min={currentDaaScore + 1}
                 step="100"
                 value={timeLockUnlockDaaScore}
                 onChange={(event) => { setTimeLockDaaTouched(true); setTimeLockUnlockDaaScore(event.target.value); }}
-                onWheel={(event) => { setTimeLockDaaTouched(true); adjustDaaWithWheel(event, setTimeLockUnlockDaaScore, currentDaaScore + 6000); }}
+                onWheel={(event) => { setTimeLockDaaTouched(true); adjustDaaWithWheel(event, setTimeLockUnlockDaaScore, currentDaaScore + 1); }}
                 inputMode="numeric"
               />
             </label>
@@ -2162,11 +2162,11 @@ export function KasCovenVaults({ recoveryMode = false }) {
               Initial unlock DAA score
               <input
                 type="number"
-                min={currentDaaScore + 6000}
+                min={currentDaaScore + 1}
                 step="100"
                 value={dmsUnlockDaaScore}
                 onChange={(event) => { setDmsDaaTouched(true); setDmsUnlockDaaScore(event.target.value); }}
-                onWheel={(event) => { setDmsDaaTouched(true); adjustDaaWithWheel(event, setDmsUnlockDaaScore, currentDaaScore + 6000); }}
+                onWheel={(event) => { setDmsDaaTouched(true); adjustDaaWithWheel(event, setDmsUnlockDaaScore, currentDaaScore + 1); }}
                 inputMode="numeric"
               />
             </label>
