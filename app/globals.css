@@ -1048,7 +1048,7 @@ body {
 }
 
 .walletActions {
-  grid-template-columns: auto auto 44px minmax(150px, 210px) auto;
+  grid-template-columns: auto 44px minmax(150px, 210px) 44px;
   gap: 8px;
 }
 
@@ -1068,6 +1068,8 @@ body {
 .vaultIconButton { width: 44px; height: 40px; border-radius: 999px; }
 .vaultIconButton svg { width: 28px; height: 28px; }
 .connectWalletButton, .disconnectButton { border-radius: 999px; }
+.disconnectButton { display: grid; width: 44px; padding: 0; place-items: center; }
+.disconnectButton svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 .vaultIntro {
   width: min(1180px, 100%);
@@ -1259,7 +1261,7 @@ body {
   .recoveryNavLink { grid-column: 1 / -1; grid-row: auto; }
   .walletConnectMenu { min-width: 0; }
   .connectWalletButton { width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .disconnectButton { grid-column: 1 / -1; }
+  .disconnectButton { grid-column: 1 / -1; justify-self: end; }
   .walletConnectDropdown {
     position: static;
     width: 100%;

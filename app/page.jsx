@@ -1862,8 +1862,18 @@ export function KasCovenVaults({ recoveryMode = false }) {
             ) : null}
           </div>
 
-          <button className="disconnectButton" type="button" onClick={() => { setMobileMenuOpen(false); disconnect(); }} disabled={!accountAddress}>
-            Disconnect
+          <button
+            className="disconnectButton"
+            type="button"
+            onClick={() => { setMobileMenuOpen(false); disconnect(); }}
+            disabled={!accountAddress}
+            title="Disconnect wallet"
+            aria-label="Disconnect wallet"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M10 5H6.8A1.8 1.8 0 0 0 5 6.8v10.4A1.8 1.8 0 0 0 6.8 19H10" />
+              <path d="M14 8l4 4-4 4M18 12H9" />
+            </svg>
           </button>
         </nav>
       </header>
