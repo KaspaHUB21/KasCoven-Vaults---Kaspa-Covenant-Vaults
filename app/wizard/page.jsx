@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { connectKaspire, restoreKaspire } from "../../lib/kaspire-wallet";
 
 function shortAddress(address) {
@@ -16,6 +16,13 @@ function formatEstimatedDuration(daaBlocks) {
   const minutes = Math.floor(seconds / 60);
   seconds %= 60;
   return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+}
+
+function adjustDaaWithWheel(event, setValue, minimum) {
+  event.preventDefault();
+  const current = Number(event.currentTarget.value) || minimum;
+  const delta = event.deltaY < 0 ? 100 : -100;
+  setValue(String(Math.max(minimum, current + delta)));
 }
 
 async function readResponse(response) {
@@ -55,6 +62,7 @@ export default function WizardPage() {
   const [amountKas, setAmountKas] = useState("1");
   const [currentDaaScore, setCurrentDaaScore] = useState(0);
   const [unlockDaaScore, setUnlockDaaScore] = useState("");
+  const unlockDaaTouchedRef = useRef(false);
   const [vaults, setVaults] = useState([]);
   const [loadingVaults, setLoadingVaults] = useState(true);
   const [createState, setCreateState] = useState(null);
@@ -148,7 +156,7 @@ export default function WizardPage() {
       if (!data) throw lastError || new Error("Prize board could not be refreshed.");
       const nextCurrentDaaScore = Number(data.currentBlueScore || 0);
       setCurrentDaaScore(nextCurrentDaaScore);
-      setUnlockDaaScore((current) => current || (nextCurrentDaaScore ? String(nextCurrentDaaScore + 3000) : ""));
+      setUnlockDaaScore((current) => unlockDaaTouchedRef.current ? current : (nextCurrentDaaScore ? String(nextCurrentDaaScore + 6000) : current));
       setVaults(Array.isArray(data.vaults) ? data.vaults : []);
       setClaimState((current) => {
         if (!current.list) return current;
@@ -168,7 +176,7 @@ export default function WizardPage() {
       const score = Number(data.currentDaaScore || 0);
       if (score) {
         setCurrentDaaScore(score);
-        setUnlockDaaScore((current) => current || String(score + 3000));
+        setUnlockDaaScore((current) => unlockDaaTouchedRef.current ? current : String(score + 6000));
       }
     } catch {
       // Keep the last authoritative score during a temporary RPC delay.
@@ -207,9 +215,14 @@ export default function WizardPage() {
     setCreateState({ loading: true });
     try {
       if (!wallet || !address || !publicKey) throw new Error("Connect a wallet before creating a prize.");
+      if (!Number.isSafeInteger(Number(unlockDaaScore)) || Number(unlockDaaScore) < currentDaaScore + 6000) {
+        setUnlockDaaScore(String(currentDaaScore + 6000));
+        throw new Error("Unlock DAA score must be at least 6,000 DAA ahead (about 10 minutes). The minimum has been selected.");
+      }
       const params = new URLSearchParams({ action: "wizard-create", address, vaultName, amountKas, unlockDaaScore });
       const draft = await readResponse(await fetch(`/api/timelock-vault?${params}`, { cache: "no-store" }));
       setCreateState({ prepared: true, draft });
+      unlockDaaTouchedRef.current = true;
     } catch (error) {
       setCreateState({ error: error?.message || String(error) });
     }
@@ -218,6 +231,11 @@ export default function WizardPage() {
   async function signAndBroadcastVault() {
     if (!createState?.prepared || !createState?.draft) {
       setCreateState({ error: "Prepare the prize vault before signing and broadcasting." });
+      return;
+    }
+    if (Number(createState.draft?.unlockDaaScore || createState.draft?.vault?.unlockTime || 0) < currentDaaScore + 6000) {
+      setUnlockDaaScore(String(currentDaaScore + 6000));
+      setCreateState({ error: "The prepared unlock score is now less than 10 minutes away. Prepare the vault again." });
       return;
     }
     setCreateState((current) => ({ ...current, signing: true, error: null }));
@@ -314,7 +332,7 @@ export default function WizardPage() {
           <label>Vault name<input value={vaultName} maxLength={64} onChange={(event) => { setVaultName(event.target.value); setCreateState(null); }} /></label>
           <label>Prize in KAS<input type="number" min="0.01" step="0.01" value={amountKas} onChange={(event) => { setAmountKas(event.target.value); setCreateState(null); }} /></label>
           <label>Current DAA score<input type="text" value={currentDaaScore || "Loading…"} readOnly /></label>
-          <label>Unlock DAA score<input type="number" min={currentDaaScore + 1} step="1" value={unlockDaaScore} onChange={(event) => { setUnlockDaaScore(event.target.value); setCreateState(null); }} /></label>
+          <label>Unlock DAA score<input type="number" min={currentDaaScore + 6000} step="100" value={unlockDaaScore} onChange={(event) => { unlockDaaTouchedRef.current = true; setUnlockDaaScore(event.target.value); setCreateState(null); }} onWheel={(event) => { unlockDaaTouchedRef.current = true; adjustDaaWithWheel(event, setUnlockDaaScore, currentDaaScore + 6000); }} /></label>
           <div className="wizardDaaHint">
             {unlockDaaScore && currentDaaScore ? (
               <>
