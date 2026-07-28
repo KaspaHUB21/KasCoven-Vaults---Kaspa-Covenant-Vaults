@@ -29,12 +29,11 @@ export default function RecoveryPage() {
       <section className="recoveryToolCta">
         <div>
           <p className="vaultEyebrow">WALLET-ENABLED RECOVERY</p>
-          <h2>Choose hosted or independent recovery</h2>
-          <p>The tool on this deployment is convenient while this website is online. For outage recovery, clone the GitHub repository and open the same wallet-enabled workspace locally at http://localhost:3000/recovery/tool or on an independent mirror.</p>
+          <h2>Run recovery independently</h2>
+          <p>Clone the GitHub repository and start it locally or on an independent mirror. Then open http://localhost:3000/recovery/tool, connect Kaspire or Kasware, and import or scan your vaults.</p>
         </div>
         <div className="recoveryToolActions">
-          <a className="recoveryRepoLink" href="/recovery/tool">Use on this deployment</a>
-          <a className="recoveryRepoLink" href={GITHUB_REPO_URL} target="_blank" rel="noreferrer">Self-host from GitHub</a>
+          <a className="recoveryRepoLink" href={GITHUB_REPO_URL} target="_blank" rel="noreferrer">Get recovery tool on GitHub</a>
         </div>
       </section>
 

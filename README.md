@@ -91,7 +91,7 @@ Keep private infrastructure URLs and credentials in deployment environment confi
 ## Application routes
 
 - `/` — wallet connection, vault creation, discovery, pulse and release interface
-- `/recovery` — clearly separates same-deployment use from independent GitHub self-host recovery and includes CLI instructions
+- `/recovery` — documents independent GitHub self-host recovery and includes CLI instructions
 - `/recovery/tool` — complete Kaspire/Kasware recovery workspace for imports, chain refresh, signing and broadcast
 - `/api/timelock-vault` — creates, scans and prepares time-lock and dead-mans-switch transactions
 - `/api/covenant-broadcast` — validates/deserializes signed transaction JSON and submits it through Kaspa wRPC
