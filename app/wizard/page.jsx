@@ -33,6 +33,16 @@ async function readResponse(response) {
   return data;
 }
 
+function TechnicalDetails({ data, title = "Technical details" }) {
+  if (!data) return null;
+  return (
+    <details className="debugDetails">
+      <summary>{title}</summary>
+      <pre>{JSON.stringify(data, (key, value) => key === "loading" ? undefined : value, 2)}</pre>
+    </details>
+  );
+}
+
 export default function WizardPage() {
   const [wallet, setWallet] = useState(null);
   const [walletName, setWalletName] = useState("");
@@ -79,7 +89,11 @@ export default function WizardPage() {
       setPairing(null);
       await applyWallet(nextWallet, "Kaspire");
     } catch (error) {
-      setCreateState({ error: error?.message || String(error) });
+      setCreateState((current) => ({
+        ...(current?.prepared ? current : {}),
+        signing: false,
+        error: error?.message || String(error),
+      }));
     }
   }
 
@@ -90,7 +104,11 @@ export default function WizardPage() {
       if (!accounts?.length) throw new Error("Kasware returned no account.");
       await applyWallet(window.kasware, "Kasware");
     } catch (error) {
-      setCreateState({ error: error?.message || String(error) });
+      setCreateState((current) => ({
+        ...(current?.prepared ? current : {}),
+        signing: false,
+        error: error?.message || String(error),
+      }));
     }
   }
 
@@ -100,7 +118,11 @@ export default function WizardPage() {
         await wallet.disconnect();
       }
     } catch (error) {
-      setCreateState({ error: error?.message || String(error) });
+      setCreateState((current) => ({
+        ...(current?.prepared ? current : {}),
+        signing: false,
+        error: error?.message || String(error),
+      }));
     } finally {
       setWallet(null);
       setWalletName("");
@@ -181,12 +203,27 @@ export default function WizardPage() {
     };
   }, []);
 
-  async function createVault() {
+  async function prepareVault() {
     setCreateState({ loading: true });
     try {
       if (!wallet || !address || !publicKey) throw new Error("Connect a wallet before creating a prize.");
       const params = new URLSearchParams({ action: "wizard-create", address, vaultName, amountKas, unlockDaaScore });
       const draft = await readResponse(await fetch(`/api/timelock-vault?${params}`, { cache: "no-store" }));
+      setCreateState({ prepared: true, draft });
+    } catch (error) {
+      setCreateState({ error: error?.message || String(error) });
+    }
+  }
+
+  async function signAndBroadcastVault() {
+    if (!createState?.prepared || !createState?.draft) {
+      setCreateState({ error: "Prepare the prize vault before signing and broadcasting." });
+      return;
+    }
+    setCreateState((current) => ({ ...current, signing: true, error: null }));
+    try {
+      if (!wallet || !address || !publicKey) throw new Error("Reconnect the wallet used to prepare this prize.");
+      const draft = createState.draft;
       const signed = await wallet.signPskt({
         txJsonString: draft.txJson,
         options: {
@@ -203,13 +240,18 @@ export default function WizardPage() {
       setCreateState({ ok: true, draft, broadcast });
       window.setTimeout(loadVaults, 2500);
     } catch (error) {
-      setCreateState({ error: error?.message || String(error) });
+      setCreateState((current) => ({
+        ...(current || {}),
+        signing: false,
+        error: error?.message || String(error),
+      }));
     }
   }
 
   async function claimVault(vault) {
     const key = vault.deployTxId;
     setClaimState((current) => ({ ...current, [key]: { loading: true } }));
+    let draft = null;
     try {
       if (!address) throw new Error("Connect the wallet that should receive the prize.");
       const outpoint = vault.selectedOutpoint || {};
@@ -222,7 +264,7 @@ export default function WizardPage() {
         outpointTxId: outpoint.transactionId || outpoint.transaction_id || outpoint.txId || "",
         outpointIndex: String(outpoint.index ?? ""),
       });
-      const draft = await readResponse(await fetch(`/api/timelock-vault?${params}`, { cache: "no-store" }));
+      draft = await readResponse(await fetch(`/api/timelock-vault?${params}`, { cache: "no-store" }));
       const broadcast = await readResponse(await fetch("/api/covenant-broadcast", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -231,7 +273,7 @@ export default function WizardPage() {
       setClaimState((current) => ({ ...current, [key]: { ok: true, draft, broadcast } }));
       await loadVaults();
     } catch (error) {
-      setClaimState((current) => ({ ...current, [key]: { error: error?.message || String(error) } }));
+      setClaimState((current) => ({ ...current, [key]: { error: error?.message || String(error), draft } }));
       await loadVaults();
     }
   }
@@ -269,10 +311,10 @@ export default function WizardPage() {
           <p className="wizardIrreversible">Once broadcast, the creator cannot cancel or reclaim this vault. After the timer expires, the prize is intentionally open to everyone.</p>
         </div>
         <div className="wizardForm">
-          <label>Vault name<input value={vaultName} maxLength={64} onChange={(event) => setVaultName(event.target.value)} /></label>
-          <label>Prize in KAS<input type="number" min="0.01" step="0.01" value={amountKas} onChange={(event) => setAmountKas(event.target.value)} /></label>
+          <label>Vault name<input value={vaultName} maxLength={64} onChange={(event) => { setVaultName(event.target.value); setCreateState(null); }} /></label>
+          <label>Prize in KAS<input type="number" min="0.01" step="0.01" value={amountKas} onChange={(event) => { setAmountKas(event.target.value); setCreateState(null); }} /></label>
           <label>Current DAA score<input type="text" value={currentDaaScore || "Loading…"} readOnly /></label>
-          <label>Unlock DAA score<input type="number" min={currentDaaScore + 1} step="1" value={unlockDaaScore} onChange={(event) => setUnlockDaaScore(event.target.value)} /></label>
+          <label>Unlock DAA score<input type="number" min={currentDaaScore + 1} step="1" value={unlockDaaScore} onChange={(event) => { setUnlockDaaScore(event.target.value); setCreateState(null); }} /></label>
           <div className="wizardDaaHint">
             {unlockDaaScore && currentDaaScore ? (
               <>
@@ -283,11 +325,19 @@ export default function WizardPage() {
               </>
             ) : "Choose an unlock score above the current DAA score."}
           </div>
-          <button type="button" onClick={createVault} disabled={createState?.loading || !address}>
-            {createState?.loading ? "Waiting for wallet…" : "Create prize vault"}
-          </button>
+          <div className="wizardCreateSteps">
+            <button type="button" onClick={prepareVault} disabled={createState?.loading || createState?.signing || !address}>
+              {createState?.loading ? "Preparing…" : "1. Prepare vault"}
+            </button>
+            <button type="button" onClick={signAndBroadcastVault} disabled={!createState?.prepared || createState?.signing || createState?.ok}>
+              {createState?.signing ? "Waiting for wallet…" : "2. Sign and broadcast"}
+            </button>
+          </div>
           {createState?.error ? <p className="wizardError">{createState.error}</p> : null}
+          {createState?.prepared && !createState?.ok ? <p className="wizardSuccess">Draft prepared. Review the technical details, then sign and broadcast.</p> : null}
           {createState?.ok ? <p className="wizardSuccess">Prize broadcast: {shortAddress(createState.broadcast?.txId)}</p> : null}
+          <TechnicalDetails data={createState?.draft} title="Prepared vault technical details" />
+          <TechnicalDetails data={createState?.broadcast} title="Broadcast technical details" />
         </div>
       </section>
 
@@ -316,6 +366,9 @@ export default function WizardPage() {
                 </button>
                 {state.ok ? <p className="wizardSuccess">You won this race. Transaction broadcast.</p> : null}
                 {state.error ? <p className="wizardError">{state.error}</p> : null}
+                <TechnicalDetails data={vault} title="Vault technical details" />
+                <TechnicalDetails data={state.draft} title="Claim technical details" />
+                <TechnicalDetails data={state.broadcast} title="Claim broadcast details" />
               </article>
             );
           })}

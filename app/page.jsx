@@ -307,7 +307,7 @@ function DebugDetails({ title = "Technical details", data }) {
   return (
     <details className="debugDetails">
       <summary>{title}</summary>
-      <pre>{JSON.stringify(data, null, 2)}</pre>
+      <pre>{JSON.stringify(data, (key, value) => key === "loading" ? undefined : value, 2)}</pre>
     </details>
   );
 }
