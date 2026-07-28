@@ -1,6 +1,7 @@
 import path from "path";
 import { createRequire } from "module";
-import { kaspaApiUrl } from "../../../lib/kaspa-endpoints.js";
+import { kaspaApiUrl, kaspaHistoryApiUrl } from "../../../lib/kaspa-endpoints.js";
+import { findIndexedVaults, indexVaultCreation } from "../../../lib/vault-index.js";
 
 const TOCCATA_FEE_RATE = 100n;
 const FEE_SAFETY_BUFFER_SOMPI = 50_000n;
@@ -14,7 +15,7 @@ const VAULT_PAYLOAD_VERSION = 2;
 const RECOVERY_PROTOCOL = "kascoven-vault-recovery-v1";
 const KEYLESS_MAX_FEE_SOMPI = 15_000_000n;
 const DMS_NOTICE_SOMPI = 3_000_000n;
-const MAX_SCAN_PAGES = 6;
+const MAX_SCAN_PAGES = 10_000;
 const SCAN_PAGE_SIZE = 50;
 
 function loadToccataKaspa() {
@@ -635,19 +636,30 @@ async function scanActiveVaults(kaspa, searchParams) {
 
   const candidates = [];
 
-  for (let page = 0; page < MAX_SCAN_PAGES; page += 1) {
-    const offset = page * SCAN_PAGE_SIZE;
-    const response = await fetch(
-      kaspaApiUrl(`/addresses/${address}/full-transactions?limit=${SCAN_PAGE_SIZE}&offset=${offset}`),
-      { cache: "no-store" },
-    );
+  for (let page = -1; page < MAX_SCAN_PAGES; page += 1) {
+    let transactions;
+    if (page === -1) {
+      const indexed = await findIndexedVaults({ ownerAddress: address });
+      transactions = indexed.map((record) => ({
+        transaction_id: record.deployTxId,
+        payload: record.payload,
+        accepting_block_time: record.acceptingBlockTime,
+      }));
+    } else {
+      const offset = page * SCAN_PAGE_SIZE;
+      const response = await fetch(
+        kaspaHistoryApiUrl(`/addresses/${address}/full-transactions?limit=${SCAN_PAGE_SIZE}&offset=${offset}`),
+        { cache: "no-store" },
+      );
 
-    if (!response.ok) {
-      throw new Error("Kaspa transaction history API returned an error for this wallet.");
+      if (!response.ok) {
+        if (candidates.length) break;
+        throw new Error("Kaspa archival transaction history API returned an error for this wallet.");
+      }
+
+      transactions = await response.json();
+      if (!Array.isArray(transactions) || transactions.length === 0) break;
     }
-
-    const transactions = await response.json();
-    if (!Array.isArray(transactions) || transactions.length === 0) break;
 
     for (const transaction of transactions) {
       const payload = parseJsonPayload(transaction?.payload);
@@ -664,6 +676,13 @@ async function scanActiveVaults(kaspa, searchParams) {
       ) {
         continue;
       }
+
+      await indexVaultCreation({
+        deployTxId: transaction.transaction_id,
+        payload,
+        acceptingBlockTime: transaction.accepting_block_time || transaction.block_time || null,
+        source: page === -1 ? "index-refresh" : "history-backfill",
+      }).catch(() => null);
 
       const vault = makeTimeLockVault(kaspa, payload.unlockTime, payload.ownerAddress);
       if (vault.address !== payload.vaultAddress || vault.redeemScript !== payload.redeemScript) {
@@ -708,13 +727,20 @@ async function scanActiveVaults(kaspa, searchParams) {
     }
   }
 
-  candidates.sort((a, b) => Number(b.acceptingBlockTime || 0) - Number(a.acceptingBlockTime || 0));
+  const candidatesByOutpoint = new Map();
+  for (const candidate of candidates) {
+    const outpoint = candidate.selectedOutpoint || {};
+    const txId = outpoint.transactionId || outpoint.transaction_id || outpoint.txId;
+    candidatesByOutpoint.set(`${txId}:${outpoint.index}`, candidate);
+  }
+  const uniqueCandidates = Array.from(candidatesByOutpoint.values())
+    .sort((a, b) => Number(b.acceptingBlockTime || 0) - Number(a.acceptingBlockTime || 0));
 
   return Response.json({
-    status: candidates.length ? "Active vaults found" : "No active time-locked vaults found",
+    status: uniqueCandidates.length ? "Active vaults found" : "No active time-locked vaults found",
     address,
-    count: candidates.length,
-    vaults: candidates,
+    count: uniqueCandidates.length,
+    vaults: uniqueCandidates,
   });
 }
 
@@ -730,19 +756,34 @@ async function scanDeadManSwitchVaults(kaspa, searchParams) {
 
   const candidates = [];
 
-  for (let page = 0; page < MAX_SCAN_PAGES; page += 1) {
-    const offset = page * SCAN_PAGE_SIZE;
-    const response = await fetch(
-      kaspaApiUrl(`/addresses/${scanAddress}/full-transactions?limit=${SCAN_PAGE_SIZE}&offset=${offset}`),
-      { cache: "no-store" },
-    );
+  for (let page = -1; page < MAX_SCAN_PAGES; page += 1) {
+    let transactions;
+    if (page === -1) {
+      const indexed = await findIndexedVaults(
+        scanMode === "beneficiary"
+          ? { beneficiaryAddress }
+          : { ownerAddress },
+      );
+      transactions = indexed.map((record) => ({
+        transaction_id: record.deployTxId,
+        payload: record.payload,
+        accepting_block_time: record.acceptingBlockTime,
+      }));
+    } else {
+      const offset = page * SCAN_PAGE_SIZE;
+      const response = await fetch(
+        kaspaHistoryApiUrl(`/addresses/${scanAddress}/full-transactions?limit=${SCAN_PAGE_SIZE}&offset=${offset}`),
+        { cache: "no-store" },
+      );
 
-    if (!response.ok) {
-      throw new Error("Kaspa transaction history API returned an error for this address.");
+      if (!response.ok) {
+        if (candidates.length) break;
+        throw new Error("Kaspa archival transaction history API returned an error for this address.");
+      }
+
+      transactions = await response.json();
+      if (!Array.isArray(transactions) || transactions.length === 0) break;
     }
-
-    const transactions = await response.json();
-    if (!Array.isArray(transactions) || transactions.length === 0) break;
 
     for (const transaction of transactions) {
       const payload = parseJsonPayload(transaction?.payload);
@@ -761,6 +802,13 @@ async function scanDeadManSwitchVaults(kaspa, searchParams) {
       ) {
         continue;
       }
+
+      await indexVaultCreation({
+        deployTxId: transaction.transaction_id,
+        payload,
+        acceptingBlockTime: transaction.accepting_block_time || transaction.block_time || null,
+        source: page === -1 ? "index-refresh" : "history-backfill",
+      }).catch(() => null);
 
       const vault =
         payload.dmsMode === "heartbeat"

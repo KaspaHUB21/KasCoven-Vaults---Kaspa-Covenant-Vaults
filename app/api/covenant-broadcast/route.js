@@ -1,6 +1,7 @@
 import path from "path";
 import { createRequire } from "module";
 import { KASPA_WRPC } from "../../../lib/kaspa-endpoints.js";
+import { indexVaultCreation, parseVaultPayload } from "../../../lib/vault-index.js";
 
 function loadToccataKaspa() {
   const requireFromProject = createRequire(path.join(process.cwd(), "package.json"));
@@ -116,12 +117,30 @@ export async function POST(request) {
         rpc.submitTransaction({ transaction, allowOrphan: false }),
         timeoutAfter(25_000, "Kaspa RPC did not confirm the broadcast in time. This is usually a temporary network/RPC delay, not a vault bug. Wait a moment, check your wallet or explorer, then retry if no transaction appears."),
       ]);
+      const transactionId = result?.transactionId || result;
+      const vaultPayload = parseVaultPayload(transaction.payload);
+      let vaultIndexed = false;
+      let vaultIndexError = null;
+
+      if (vaultPayload) {
+        try {
+          vaultIndexed = await indexVaultCreation({
+            deployTxId: transactionId,
+            payload: vaultPayload,
+            source: "broadcast",
+          });
+        } catch (error) {
+          vaultIndexError = error?.message || String(error);
+        }
+      }
 
       return Response.json({
         ok: true,
-        txId: result?.transactionId || result,
+        txId: transactionId,
         result,
         transport: connection.transport,
+        vaultIndexed,
+        vaultIndexError,
       });
     } finally {
       await rpc.disconnect().catch(() => null);

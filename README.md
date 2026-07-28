@@ -45,7 +45,7 @@ Configuration:
 
 - `KASPA_API` — history/UTXO API base URL; default `https://api.kaspa.org`
 - `KASCOVEN_API` — compatible vault API used by `claim-draft`
-- `KASCOVEN_SCAN_PAGES` — maximum history pages to scan; default `10`
+- `KASCOVEN_SCAN_PAGES` — emergency safety ceiling for history scans; default `10000` pages (500,000 transactions)
 
 ## Requirements
 
@@ -78,13 +78,28 @@ The production server defaults to Next.js port 3000. No own Kaspa node is requir
 
 The application works without node configuration:
 
-- `KASPA_API` defaults to `https://api.kaspa.org` for history, UTXOs and network data.
+- `KASPA_API` defaults to `https://api.kaspa.org` for UTXOs and network data.
+- `KASPA_HISTORY_API` defaults to `https://api.kaspa.org` for complete archival transaction history.
 - If `KASPA_WRPC` is unset, the bundled Kaspa Resolver selects a community-operated public Mainnet wRPC endpoint for broadcast.
 
 Optional server-side overrides:
 
 - `KASPA_API` — custom Kaspa REST API base URL
+- `KASPA_HISTORY_API` — archival Kaspa transaction-history API used to rediscover old vault creation payloads
 - `KASPA_WRPC` — own Kaspa wRPC WebSocket endpoint; attempted before the public resolver
+- `VAULT_INDEX_PATH` — persistent server-side vault metadata index; production deployments must place it on backed-up durable storage
+
+### Durable vault discovery
+
+KasCoven does not require users to export a recovery file in order to rediscover an active vault:
+
+- Every vault creation broadcast by the app is written to a persistent server-side public metadata index.
+- Wallet scans walk the complete archival address history rather than only the newest transactions.
+- Historical discoveries backfill the persistent index automatically.
+- Browser storage keeps a list of vaults per wallet and migrates older single-vault records automatically.
+- Indexed records are only discovery candidates. The current vault-address UTXO is checked before a vault is shown as active, so Kaspa consensus remains authoritative.
+
+A normal pruned node remains suitable for current UTXO checks and broadcasting, but it cannot guarantee old transaction-payload lookup. Keep `KASPA_HISTORY_API` pointed at an archival history service and back up `VAULT_INDEX_PATH`.
 
 Keep private infrastructure URLs and credentials in deployment environment configuration. Do not commit `.env*.local` files.
 

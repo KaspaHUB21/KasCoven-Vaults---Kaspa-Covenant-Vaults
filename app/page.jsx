@@ -154,52 +154,78 @@ function getActiveTimeLockStorageKey(address) {
   return `${ACTIVE_TIME_LOCK_STORAGE_PREFIX}${address}`;
 }
 
-function loadActiveTimeLockVault(address) {
-  if (typeof window === "undefined" || !address) return null;
+function loadStoredVaults(storageKey) {
+  if (typeof window === "undefined" || !storageKey) return [];
 
   try {
-    return JSON.parse(window.localStorage.getItem(getActiveTimeLockStorageKey(address)) || "null");
+    const stored = JSON.parse(window.localStorage.getItem(storageKey) || "null");
+    if (!stored) return [];
+    return Array.isArray(stored) ? stored : [stored];
   } catch {
-    return null;
+    return [];
   }
+}
+
+function storedVaultRecordKey(record) {
+  return vaultSelectionKey(record?.draft) || record?.broadcast?.txId || "";
+}
+
+function loadActiveTimeLockVaults(address) {
+  if (typeof window === "undefined" || !address) return [];
+  return loadStoredVaults(getActiveTimeLockStorageKey(address));
+}
+
+function loadActiveTimeLockVault(address) {
+  return loadActiveTimeLockVaults(address)[0] || null;
 }
 
 function saveActiveTimeLockVault(address, vaultRecord) {
   if (typeof window === "undefined" || !address) return;
 
-  window.localStorage.setItem(getActiveTimeLockStorageKey(address), JSON.stringify(vaultRecord));
+  const records = loadActiveTimeLockVaults(address);
+  const key = storedVaultRecordKey(vaultRecord);
+  const next = [vaultRecord, ...records.filter((record) => storedVaultRecordKey(record) !== key)];
+  window.localStorage.setItem(getActiveTimeLockStorageKey(address), JSON.stringify(next));
 }
 
-function removeActiveTimeLockVault(address) {
+function removeActiveTimeLockVault(address, vault) {
   if (typeof window === "undefined" || !address) return;
 
-  window.localStorage.removeItem(getActiveTimeLockStorageKey(address));
+  const key = vaultSelectionKey(vault);
+  const next = loadActiveTimeLockVaults(address).filter((record) => storedVaultRecordKey(record) !== key);
+  if (next.length) window.localStorage.setItem(getActiveTimeLockStorageKey(address), JSON.stringify(next));
+  else window.localStorage.removeItem(getActiveTimeLockStorageKey(address));
 }
 
 function getActiveDmsStorageKey(address) {
   return `${ACTIVE_DMS_STORAGE_PREFIX}${address}`;
 }
 
-function loadActiveDmsVault(address) {
-  if (typeof window === "undefined" || !address) return null;
+function loadActiveDmsVaults(address) {
+  if (typeof window === "undefined" || !address) return [];
+  return loadStoredVaults(getActiveDmsStorageKey(address));
+}
 
-  try {
-    return JSON.parse(window.localStorage.getItem(getActiveDmsStorageKey(address)) || "null");
-  } catch {
-    return null;
-  }
+function loadActiveDmsVault(address) {
+  return loadActiveDmsVaults(address)[0] || null;
 }
 
 function saveActiveDmsVault(address, vaultRecord) {
   if (typeof window === "undefined" || !address) return;
 
-  window.localStorage.setItem(getActiveDmsStorageKey(address), JSON.stringify(vaultRecord));
+  const records = loadActiveDmsVaults(address);
+  const key = storedVaultRecordKey(vaultRecord);
+  const next = [vaultRecord, ...records.filter((record) => storedVaultRecordKey(record) !== key)];
+  window.localStorage.setItem(getActiveDmsStorageKey(address), JSON.stringify(next));
 }
 
-function removeActiveDmsVault(address) {
+function removeActiveDmsVault(address, vault) {
   if (typeof window === "undefined" || !address) return;
 
-  window.localStorage.removeItem(getActiveDmsStorageKey(address));
+  const key = vaultSelectionKey(vault);
+  const next = loadActiveDmsVaults(address).filter((record) => storedVaultRecordKey(record) !== key);
+  if (next.length) window.localStorage.setItem(getActiveDmsStorageKey(address), JSON.stringify(next));
+  else window.localStorage.removeItem(getActiveDmsStorageKey(address));
 }
 
 function shortAddress(address) {
@@ -493,7 +519,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
 
         const account = visibleReport.accounts?.[0];
         const address = typeof account === "string" ? account : account?.address;
-        removeActiveDmsVault(address);
+        removeActiveDmsVault(address, dmsCreateResult?.draft);
       } catch (error) {
         setDmsReleaseResult((current) =>
           current?.ok ? current : { ...errorResult(error), auto: true },
@@ -794,8 +820,13 @@ export function KasCovenVaults({ recoveryMode = false }) {
   }
 
   function restoreActiveTimeLockVault(address) {
-    const vaultRecord = loadActiveTimeLockVault(address);
+    const vaultRecords = loadActiveTimeLockVaults(address);
+    const vaultRecord = vaultRecords[0];
     if (!vaultRecord?.draft?.vault?.address) return false;
+
+    setDiscoveredTimeLockVaults((current) =>
+      mergeVaultLists(current, vaultRecords.map((record) => record?.draft).filter((draft) => draft?.vault?.address)),
+    );
 
     setTimeLockCreateResult({
       loading: false,
@@ -879,8 +910,13 @@ export function KasCovenVaults({ recoveryMode = false }) {
   }
 
   function restoreActiveDmsVault(address) {
-    const vaultRecord = loadActiveDmsVault(address);
+    const vaultRecords = loadActiveDmsVaults(address);
+    const vaultRecord = vaultRecords[0];
     if (!vaultRecord?.draft?.vault?.address) return false;
+
+    setDiscoveredDmsVaults((current) =>
+      mergeVaultLists(current, vaultRecords.map((record) => record?.draft).filter((draft) => draft?.vault?.address)),
+    );
 
     setDmsCreateResult({
       loading: false,
@@ -1359,7 +1395,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
 
       if (!response.ok) throw new Error(data.error || "Broadcast failed.");
       setTimeLockUnlockBroadcastResult({ loading: false, ok: true, data });
-      removeActiveTimeLockVault(address);
+      removeActiveTimeLockVault(address, timeLockCreateResult?.draft);
     } catch (error) {
       setTimeLockUnlockBroadcastResult({ loading: false, ok: false, error: error?.message || String(error) });
     }
@@ -1637,7 +1673,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
 
       const account = visibleReport.accounts?.[0];
       const address = typeof account === "string" ? account : account?.address;
-      removeActiveDmsVault(address);
+      removeActiveDmsVault(address, dmsCreateResult?.draft);
     } catch (error) {
       setDmsReleaseBroadcastResult(errorResult(error));
     }

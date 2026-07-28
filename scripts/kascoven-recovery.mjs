@@ -5,7 +5,7 @@ const VAULT_PAYLOAD_VERSION = 2;
 const RECOVERY_PROTOCOL = "kascoven-vault-recovery-v1";
 const KASPA_API = process.env.KASPA_API || "https://api.kaspa.org";
 const DEFAULT_VAULT_API = process.env.KASCOVEN_API || "http://127.0.0.1:3000/api/timelock-vault";
-const MAX_SCAN_PAGES = Number(process.env.KASCOVEN_SCAN_PAGES || 10);
+const MAX_SCAN_PAGES = Number(process.env.KASCOVEN_SCAN_PAGES || 10000);
 const SCAN_PAGE_SIZE = 50;
 
 function usage() {
