@@ -21,7 +21,7 @@ The website prepares transactions, requests wallet review/signing where required
 
 ## Recovery model
 
-The `/recovery` page explains recovery without relying on the hosted site and links to `/recovery/tool`, which includes Kaspire and Kasware wallet connectivity. A recovery JSON file contains no seed phrase or private key, but it does reveal vault metadata and should still be stored privately.
+The `/recovery` page documents independent recovery. After cloning and starting the repository, open `http://localhost:3000/recovery/tool`; it includes Kaspire and Kasware wallet connectivity and derives WalletConnect metadata from the local or mirror origin rather than the hosted Vaults domain. A recovery JSON file contains no seed phrase or private key, but it does reveal vault metadata and should still be stored privately.
 
 Recovery has three distinct stages:
 
@@ -36,7 +36,7 @@ Always refresh live chain state before acting. A saved record can reference an o
 ```bash
 pnpm recovery scan --address kaspa:YOUR_ADDRESS --mode all
 pnpm recovery export --address kaspa:YOUR_ADDRESS --mode all --out recovery.json
-pnpm recovery claim-draft --file recovery.json --vault 0 --api http://127.0.0.1:8110/api/timelock-vault
+pnpm recovery claim-draft --file recovery.json --vault 0 --api http://127.0.0.1:3000/api/timelock-vault
 ```
 
 `scan` and `export` use public Kaspa history and UTXO APIs. `--mode` accepts `owner`, `beneficiary`, or `all`. Export files may contain several vault records; select one for `claim-draft` with the zero-based `--vault` index. `claim-draft` creates an unsigned draft and does not replace wallet review, signing or broadcast.
@@ -72,7 +72,7 @@ pnpm start
 pnpm run install:toccata
 ```
 
-The production server defaults to Next.js port 3000. The KasLab service uses its own service configuration and reverse proxy.
+The production server defaults to Next.js port 3000. Recovery users open `http://localhost:3000/recovery/tool`, connect the matching Kaspire or Kasware wallet, import recovery JSON or scan their address, refresh UTXOs, and then review and authorize the available covenant action. The KasLab service uses its own service configuration and reverse proxy.
 
 ## Server configuration
 

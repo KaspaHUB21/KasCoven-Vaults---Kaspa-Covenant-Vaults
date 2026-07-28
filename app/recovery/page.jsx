@@ -74,12 +74,12 @@ export default function RecoveryPage() {
             <p>Your funds are not stored on the website. They remain in Kaspa vault UTXOs.</p>
           </li>
           <li>
-            <strong>Open a trusted mirror or local copy.</strong>
-            <p>Clone the official GitHub repository below to run the same interface on another server or your own computer.</p>
+            <strong>Start an independent local copy.</strong>
+            <p>Clone the GitHub repository, configure any reachable Kaspa REST and wRPC node, run the app, then open http://localhost:3000/recovery/tool. This does not depend on the hosted Vaults domain.</p>
           </li>
           <li>
-            <strong>Import your recovery file.</strong>
-            <p>Use My vaults, then Import recovery file. The app restores the vault context and can refresh live chain data.</p>
+            <strong>Connect the matching wallet and import.</strong>
+            <p>Connect Kaspire or Kasware in the local recovery workspace. Import recovery JSON or scan the connected owner or beneficiary address, then refresh live chain data before acting.</p>
           </li>
           <li>
             <strong>Or scan directly by address.</strong>
@@ -106,9 +106,12 @@ export default function RecoveryPage() {
           <code>git clone https://github.com/KaspaHUB21/KasCoven-Vaults---Kaspa-Covenant-Vaults.git</code>
           <code>cd KasCoven-Vaults---Kaspa-Covenant-Vaults</code>
           <code>pnpm install</code>
+          <code>KASPA_API=http://YOUR_KASPA_REST KASPA_WRPC=ws://YOUR_KASPA_WRPC pnpm build</code>
+          <code>KASPA_API=http://YOUR_KASPA_REST KASPA_WRPC=ws://YOUR_KASPA_WRPC pnpm start</code>
+          <code>Open http://localhost:3000/recovery/tool</code>
           <code>pnpm recovery scan --address kaspa:YOUR_ADDRESS --mode all</code>
           <code>pnpm recovery export --address kaspa:YOUR_ADDRESS --mode all --out recovery.json</code>
-          <code>pnpm recovery claim-draft --file recovery.json --vault 0 --api http://127.0.0.1:8110/api/timelock-vault</code>
+          <code>pnpm recovery claim-draft --file recovery.json --vault 0 --api http://127.0.0.1:3000/api/timelock-vault</code>
         </div>
       </section>
 
