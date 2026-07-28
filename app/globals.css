@@ -1372,6 +1372,8 @@ body {
   color: var(--text);
   background: rgba(2, 9, 9, 0.72);
 }
+.wizardForm input[readonly] { color: var(--kaspa-soft); background: rgba(73, 234, 217, 0.06); }
+.wizardDaaHint { grid-column: 1 / -1; margin: 0; color: #c8b9ff; font-size: 0.82rem; }
 .wizardForm > button { grid-column: 1 / -1; min-height: 48px; border-color: rgba(151, 119, 255, 0.55); border-radius: 999px; }
 .wizardBoardHeading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .wizardBoardHeading button { border-radius: 999px; }
@@ -1392,6 +1394,7 @@ body {
 .wizardPrize h3 { margin: 0; overflow-wrap: anywhere; font-size: 1.2rem; }
 .wizardAmount { color: var(--kaspa-soft); font-size: clamp(1.8rem, 4vw, 2.7rem); letter-spacing: -0.04em; }
 .wizardClock { color: #c8b9ff; font-family: ui-monospace, monospace; font-size: 1.25rem; font-weight: 900; }
+.wizardDaaScores strong { color: var(--text); font-family: ui-monospace, monospace; }
 .wizardPrize p { margin: 0; overflow-wrap: anywhere; color: var(--muted); font-size: 0.82rem; }
 .wizardPrize button { margin-top: auto; border-radius: 999px; }
 .wizardSuccess { grid-column: 1 / -1; margin: 0; overflow-wrap: anywhere; color: var(--kaspa-soft) !important; }

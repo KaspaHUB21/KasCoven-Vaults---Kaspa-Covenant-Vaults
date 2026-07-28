@@ -7,14 +7,6 @@ function shortAddress(address) {
   return address ? `${address.slice(0, 12)}…${address.slice(-8)}` : "Not connected";
 }
 
-function formatCountdown(seconds) {
-  const value = Math.max(0, Math.ceil(Number(seconds || 0)));
-  const hours = Math.floor(value / 3600);
-  const minutes = Math.floor((value % 3600) / 60);
-  const remaining = value % 60;
-  return `${hours ? `${hours}h ` : ""}${String(minutes).padStart(2, "0")}m ${String(remaining).padStart(2, "0")}s`;
-}
-
 async function readResponse(response) {
   const data = await response.json();
   if (!response.ok) throw new Error(data?.error || "Request failed.");
@@ -31,12 +23,12 @@ export default function WizardPage() {
   const [kaspireAction, setKaspireAction] = useState(null);
   const [vaultName, setVaultName] = useState("The Wizard's Prize");
   const [amountKas, setAmountKas] = useState("1");
-  const [lockSeconds, setLockSeconds] = useState("300");
+  const [currentDaaScore, setCurrentDaaScore] = useState(0);
+  const [unlockDaaScore, setUnlockDaaScore] = useState("");
   const [vaults, setVaults] = useState([]);
   const [loadingVaults, setLoadingVaults] = useState(true);
   const [createState, setCreateState] = useState(null);
   const [claimState, setClaimState] = useState({});
-  const [now, setNow] = useState(Date.now());
 
   const connectedLabel = useMemo(
     () => address ? `${walletName} · ${shortAddress(address)}` : "Connect Wallet",
@@ -97,8 +89,10 @@ export default function WizardPage() {
   async function loadVaults() {
     try {
       const data = await readResponse(await fetch("/api/timelock-vault?action=wizard-list", { cache: "no-store" }));
-      const loadedAt = Date.now();
-      setVaults(Array.isArray(data.vaults) ? data.vaults.map((vault) => ({ ...vault, _loadedAt: loadedAt })) : []);
+      const nextCurrentDaaScore = Number(data.currentBlueScore || 0);
+      setCurrentDaaScore(nextCurrentDaaScore);
+      setUnlockDaaScore((current) => current || (nextCurrentDaaScore ? String(nextCurrentDaaScore + 3000) : ""));
+      setVaults(Array.isArray(data.vaults) ? data.vaults : []);
     } catch (error) {
       setClaimState((current) => ({ ...current, list: { error: error?.message || String(error) } }));
     } finally {
@@ -107,7 +101,6 @@ export default function WizardPage() {
   }
 
   useEffect(() => {
-    const tick = window.setInterval(() => setNow(Date.now()), 1000);
     const refresh = window.setInterval(loadVaults, 15_000);
     const handleAction = (event) => setKaspireAction(event.detail?.active ? event.detail : null);
     window.addEventListener("vaults:kaspireAction", handleAction);
@@ -127,7 +120,6 @@ export default function WizardPage() {
     })();
 
     return () => {
-      window.clearInterval(tick);
       window.clearInterval(refresh);
       window.removeEventListener("vaults:kaspireAction", handleAction);
     };
@@ -137,7 +129,7 @@ export default function WizardPage() {
     setCreateState({ loading: true });
     try {
       if (!wallet || !address || !publicKey) throw new Error("Connect a wallet before creating a prize.");
-      const params = new URLSearchParams({ action: "wizard-create", address, vaultName, amountKas, lockSeconds });
+      const params = new URLSearchParams({ action: "wizard-create", address, vaultName, amountKas, unlockDaaScore });
       const draft = await readResponse(await fetch(`/api/timelock-vault?${params}`, { cache: "no-store" }));
       const signed = await wallet.signPskt({
         txJsonString: draft.txJson,
@@ -224,7 +216,9 @@ export default function WizardPage() {
         <div className="wizardForm">
           <label>Vault name<input value={vaultName} maxLength={64} onChange={(event) => setVaultName(event.target.value)} /></label>
           <label>Prize in KAS<input type="number" min="0.01" step="0.01" value={amountKas} onChange={(event) => setAmountKas(event.target.value)} /></label>
-          <label>Timer in seconds<input type="number" min="1" step="1" value={lockSeconds} onChange={(event) => setLockSeconds(event.target.value)} /></label>
+          <label>Current DAA score<input type="text" value={currentDaaScore || "Loading…"} readOnly /></label>
+          <label>Unlock DAA score<input type="number" min={currentDaaScore + 1} step="1" value={unlockDaaScore} onChange={(event) => setUnlockDaaScore(event.target.value)} /></label>
+          <p className="wizardDaaHint">{unlockDaaScore && currentDaaScore ? `${Math.max(0, Number(unlockDaaScore) - currentDaaScore).toLocaleString()} DAA blocks until unlock` : "Choose an unlock score above the current DAA score."}</p>
           <button type="button" onClick={createVault} disabled={createState?.loading || !address}>
             {createState?.loading ? "Waiting for wallet…" : "Create prize vault"}
           </button>
@@ -242,15 +236,16 @@ export default function WizardPage() {
         <div className="wizardPrizeGrid">
           {vaults.map((vault) => {
             const state = claimState[vault.deployTxId] || {};
-            const elapsedSinceFetch = Math.max(0, Math.floor((now - (vault._loadedAt || now)) / 1000));
-            const remaining = Math.max(0, vault.estimatedRemainingSeconds - elapsedSinceFetch);
+            const liveDaaScore = currentDaaScore || vault.currentBlueScore;
+            const remaining = Math.max(0, Number(vault.unlockTime) - liveDaaScore);
             const ready = vault.readyToClaim || remaining === 0;
             return (
               <article className={`wizardPrize ${ready ? "isReady" : ""}`} key={vault.deployTxId}>
                 <span className="wizardPrizeStatus">{ready ? "CLAIM OPEN" : "COUNTDOWN"}</span>
                 <h3>{vault.vaultName}</h3>
                 <strong className="wizardAmount">{vault.amountKas} KAS</strong>
-                <div className="wizardClock">{ready ? "00m 00s" : formatCountdown(remaining)}</div>
+                <div className="wizardClock">{ready ? "UNLOCKED" : `${remaining.toLocaleString()} DAA remaining`}</div>
+                <p className="wizardDaaScores">Current DAA <strong>{Number(liveDaaScore).toLocaleString()}</strong><br />Unlock DAA <strong>{Number(vault.unlockTime).toLocaleString()}</strong></p>
                 <p>Created by {shortAddress(vault.ownerAddress)}</p>
                 <button type="button" disabled={!ready || !address || state.loading} onClick={() => claimVault(vault)}>
                   {state.loading ? "Racing to Kaspa…" : ready ? "Claim prize" : "Still locked"}

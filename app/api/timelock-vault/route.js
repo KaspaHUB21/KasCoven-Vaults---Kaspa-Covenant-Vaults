@@ -508,15 +508,19 @@ async function createVaultDraft(kaspa, searchParams) {
 
 async function createWizardVaultDraft(kaspa, searchParams) {
   const address = searchParams.get("address");
-  const lockSeconds = Math.max(1, Number(searchParams.get("lockSeconds") || DEFAULT_LOCK_SECONDS));
   const lockAmount = kasToSompi(searchParams.get("amountKas"));
   const vaultName = cleanVaultName(searchParams.get("vaultName"), "First Come, First Served");
   const currentBlueScore = await getCurrentBlueScore();
-  const lockDaaBlocks = Math.max(1, Math.ceil(lockSeconds * MAINNET_BLOCKS_PER_SECOND));
-  const unlockTime = currentBlueScore + lockDaaBlocks;
+  const requestedUnlockDaaScore = Number(searchParams.get("unlockDaaScore") || 0);
+  const legacyLockSeconds = Math.max(1, Number(searchParams.get("lockSeconds") || DEFAULT_LOCK_SECONDS));
+  const unlockTime = requestedUnlockDaaScore || currentBlueScore + Math.ceil(legacyLockSeconds * MAINNET_BLOCKS_PER_SECOND);
+  const lockDaaBlocks = unlockTime - currentBlueScore;
 
   if (!isValidKaspaAddress(kaspa, address)) {
     return Response.json({ error: "A valid creator Kaspa address is required." }, { status: 400 });
+  }
+  if (!Number.isSafeInteger(unlockTime) || lockDaaBlocks < 1) {
+    return Response.json({ error: "Unlock DAA score must be a whole number above the current DAA score." }, { status: 400 });
   }
 
   const vault = makeWizardVault(kaspa, unlockTime);
@@ -531,7 +535,7 @@ async function createWizardVaultDraft(kaspa, searchParams) {
     unlockTime: String(unlockTime),
     redeemScript: vault.redeemScript,
     maxFeeSompi: KEYLESS_MAX_FEE_SOMPI.toString(),
-    lockSeconds,
+    lockSeconds: Math.ceil(lockDaaBlocks / MAINNET_BLOCKS_PER_SECOND),
     lockDaaBlocks,
     lockAmountSompi: lockAmount.toString(),
     createdBlueScore: currentBlueScore,
@@ -600,10 +604,10 @@ async function createWizardVaultDraft(kaspa, searchParams) {
     payload,
     currentBlueScore,
     lockDaaBlocks,
-    lockSeconds,
+    lockSeconds: Math.ceil(lockDaaBlocks / MAINNET_BLOCKS_PER_SECOND),
     lockAmountSompi: lockAmount.toString(),
     lockAmountKas: (Number(lockAmount) / 100000000).toString(),
-    estimatedUnlockTimeIso: new Date(Date.now() + lockSeconds * 1000).toISOString(),
+    unlockDaaScore: String(unlockTime),
     estimatedFeeSompi: fee.toString(),
     changeAmountSompi: changeAmount.toString(),
     tx: JSON.parse(transaction.serializeToSafeJSON()),
