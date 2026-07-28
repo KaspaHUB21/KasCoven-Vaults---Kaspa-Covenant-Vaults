@@ -493,10 +493,10 @@ export function KasCovenVaults({ recoveryMode = false }) {
       setReport(nextReport);
       const address = getAccountAddress(nextReport);
       restoreActiveTimeLockVault(address);
-      const restoredDms = restoreActiveDmsVault(address);
+      restoreActiveDmsVault(address);
       await restoreActiveTimeLockVaultFromChain(address);
       const ownerDmsFound = await scanDmsVaultsForOwner(address);
-      if (!restoredDms && !ownerDmsFound) {
+      if (!ownerDmsFound) {
         await scanDmsVaultsForBeneficiary(address, { silent: true });
       }
       if (!cancelled) {
@@ -629,10 +629,10 @@ export function KasCovenVaults({ recoveryMode = false }) {
         window.localStorage.setItem(LAST_WALLET_STORAGE_KEY, "kasware");
         const address = getAccountAddress(nextReport);
         restoreActiveTimeLockVault(address);
-        const restoredDms = restoreActiveDmsVault(address);
+        restoreActiveDmsVault(address);
         await restoreActiveTimeLockVaultFromChain(address);
         const ownerDmsFound = await scanDmsVaultsForOwner(address);
-        if (!restoredDms && !ownerDmsFound) {
+        if (!ownerDmsFound) {
           await scanDmsVaultsForBeneficiary(address, { silent: true });
         }
         return;
@@ -670,10 +670,10 @@ export function KasCovenVaults({ recoveryMode = false }) {
       setStatus("");
       const address = getAccountAddress(nextReport);
       restoreActiveTimeLockVault(address);
-      const restoredDms = restoreActiveDmsVault(address);
+      restoreActiveDmsVault(address);
       await restoreActiveTimeLockVaultFromChain(address);
       const ownerDmsFound = await scanDmsVaultsForOwner(address);
-      if (!restoredDms && !ownerDmsFound) await scanDmsVaultsForBeneficiary(address, { silent: true });
+      if (!ownerDmsFound) await scanDmsVaultsForBeneficiary(address, { silent: true });
     } catch (error) {
       setPairing(null);
       setStatus(error?.message || "Kaspire connection failed.");
@@ -939,8 +939,17 @@ export function KasCovenVaults({ recoveryMode = false }) {
       const vaults = Array.isArray(data.vaults) ? data.vaults : [];
       setDiscoveredTimeLockVaults(vaults);
 
+      const activeKeys = new Set(vaults.map(vaultSelectionKey));
+      for (const record of loadActiveTimeLockVaults(address)) {
+        if (!activeKeys.has(storedVaultRecordKey(record))) {
+          removeActiveTimeLockVault(address, record.draft);
+        }
+      }
+
       const activeVault = vaults[0] || null;
       if (!activeVault?.vault?.address) {
+        setTimeLockCreateResult((current) => current?.restored ? null : current);
+        setTimeLockCreateBroadcastResult((current) => current?.restored ? null : current);
         setStatus("");
         return false;
       }
@@ -1039,12 +1048,27 @@ export function KasCovenVaults({ recoveryMode = false }) {
       if (!response.ok) throw new Error(data.error || "Could not scan for dead-man-switch vaults.");
 
       const vaults = Array.isArray(data.vaults) ? data.vaults : [];
-      if (vaults.length) {
-        setDiscoveredDmsVaults((current) => mergeVaultLists(current, vaults));
+      setDiscoveredDmsVaults((current) =>
+        mergeVaultLists(
+          current.filter((vault) => (vault.beneficiaryAddress || vault.payload?.beneficiaryAddress) !== beneficiaryAddress),
+          vaults,
+        ),
+      );
+
+      const activeKeys = new Set(vaults.map(vaultSelectionKey));
+      for (const record of loadActiveDmsVaults(beneficiaryAddress)) {
+        if (!activeKeys.has(storedVaultRecordKey(record))) {
+          removeActiveDmsVault(beneficiaryAddress, record.draft);
+        }
       }
 
       const activeVault = vaults[0] || null;
       if (!activeVault?.vault?.address) {
+        setDmsCreateResult((current) => {
+          const draftBeneficiary = current?.draft?.beneficiaryAddress || current?.draft?.payload?.beneficiaryAddress;
+          return draftBeneficiary === beneficiaryAddress ? null : current;
+        });
+        setDmsCreateBroadcastResult((current) => current?.restoredFromChain ? null : current);
         if (!options.silent) setDmsScanResult({ loading: false, ok: true, data });
         return false;
       }
@@ -1106,12 +1130,29 @@ export function KasCovenVaults({ recoveryMode = false }) {
       if (!response.ok) throw new Error(data.error || "Could not scan for owned dead-man-switch vaults.");
 
       const vaults = Array.isArray(data.vaults) ? data.vaults : [];
-      if (vaults.length) {
-        setDiscoveredDmsVaults((current) => mergeVaultLists(current, vaults));
+      setDiscoveredDmsVaults((current) =>
+        mergeVaultLists(
+          current.filter((vault) => (vault.ownerAddress || vault.payload?.ownerAddress) !== ownerAddress),
+          vaults,
+        ),
+      );
+
+      const activeKeys = new Set(vaults.map(vaultSelectionKey));
+      for (const record of loadActiveDmsVaults(ownerAddress)) {
+        if (!activeKeys.has(storedVaultRecordKey(record))) {
+          removeActiveDmsVault(ownerAddress, record.draft);
+        }
       }
 
       const activeVault = vaults[0] || null;
-      if (!activeVault?.vault?.address) return false;
+      if (!activeVault?.vault?.address) {
+        setDmsCreateResult((current) => {
+          const draftOwner = current?.draft?.ownerAddress || current?.draft?.payload?.ownerAddress;
+          return draftOwner === ownerAddress ? null : current;
+        });
+        setDmsCreateBroadcastResult((current) => current?.restoredFromChain ? null : current);
+        return false;
+      }
 
       const restoredDraft = {
         ...activeVault,
