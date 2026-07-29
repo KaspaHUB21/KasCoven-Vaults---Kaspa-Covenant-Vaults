@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { connectKaspire, restoreKaspire } from "../../lib/kaspire-wallet";
+import { connectKaspire, prepareKaspireConnection, restoreKaspire } from "../../lib/kaspire-wallet";
 
 function shortAddress(address) {
   return address ? `${address.slice(0, 12)}…${address.slice(-8)}` : "Not connected";
@@ -104,6 +104,8 @@ export default function WizardPage() {
   const [address, setAddress] = useState("");
   const [publicKey, setPublicKey] = useState("");
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
+  const [preparedKaspire, setPreparedKaspire] = useState(null);
+  const [preparingKaspire, setPreparingKaspire] = useState(false);
   const [pairing, setPairing] = useState(null);
   const [kaspireAction, setKaspireAction] = useState(null);
   const [vaultName, setVaultName] = useState("The Wizard's Prize");
@@ -139,12 +141,42 @@ export default function WizardPage() {
     void nextWallet.getPublicKey().then(setPublicKey).catch(() => null);
   }
 
-  async function connectWithKaspire() {
+  async function prepareKaspire() {
+    if (preparedKaspire || preparingKaspire) return;
+    setPreparingKaspire(true);
+    try {
+      setPreparedKaspire(await prepareKaspireConnection());
+    } catch (error) {
+      setCreateState({ error: error?.message || "Kaspire pairing could not be prepared." });
+    } finally {
+      setPreparingKaspire(false);
+    }
+  }
+
+  function toggleWalletMenu() {
+    const opening = !walletMenuOpen;
+    setWalletMenuOpen(opening);
+    if (opening && !address) void prepareKaspire();
+  }
+
+  function launchKaspire() {
+    const isAndroid = /Android/i.test(window.navigator.userAgent);
+    if (isAndroid && preparedKaspire?.intentLink) {
+      setWalletMenuOpen(false);
+      window.location.assign(preparedKaspire.intentLink);
+      void connectWithKaspire(true);
+      return;
+    }
+    void connectWithKaspire(false);
+  }
+
+  async function connectWithKaspire(alreadyLaunched = false) {
     try {
       const nextWallet = await connectKaspire({
         onDisplayUri: async ({ appLink, intentLink }) => {
           const isAndroid = /Android/i.test(window.navigator.userAgent);
           if (isAndroid) {
+            if (alreadyLaunched) return;
             window.location.assign(intentLink);
             return;
           }
@@ -282,6 +314,20 @@ export default function WizardPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    setPreparingKaspire(true);
+    prepareKaspireConnection()
+      .then((prepared) => {
+        if (!cancelled && prepared) setPreparedKaspire(prepared);
+      })
+      .catch(() => null)
+      .finally(() => {
+        if (!cancelled) setPreparingKaspire(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   async function prepareVault() {
     setCreateState({ loading: true });
     try {
@@ -378,10 +424,10 @@ export default function WizardPage() {
           <span>KasCoven <strong>Wizard</strong></span>
         </a>
         <div className="wizardWallet">
-          <button type="button" onClick={() => setWalletMenuOpen((open) => !open)}>{connectedLabel}</button>
+          <button type="button" onClick={toggleWalletMenu}>{connectedLabel}</button>
           {walletMenuOpen && !address ? (
             <div className="wizardWalletMenu">
-              <button type="button" onClick={connectWithKaspire}><strong>Kaspire</strong><span>Mobile · WalletConnect</span></button>
+              <button type="button" disabled={preparingKaspire} onClick={launchKaspire}><strong>{preparingKaspire ? "Preparing Kaspire…" : "Kaspire"}</strong><span>Mobile · WalletConnect</span></button>
               <button type="button" onClick={connectWithKasware}><strong>Kasware</strong><span>Browser extension</span></button>
             </div>
           ) : null}
