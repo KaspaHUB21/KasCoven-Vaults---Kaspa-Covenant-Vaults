@@ -2264,7 +2264,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
               <img src="/timelockedvault.png" alt="Closed time-locked vault" />
               <div className="activeVaultSafeBody">
                 <div className="activeVaultSafeTop">
-                  <p className="vaultEyebrow">CLOSED VAULT</p>
+                  <p className="vaultEyebrow">MY VAULTS</p>
                   <details className="activeVaultSwitcher">
                     <summary aria-label="Switch vault" title="Switch vault"><span /><span /><span /></summary>
                     <div>
@@ -2459,7 +2459,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
               <img src="/deadmansswitch.png" alt="Closed dead-man-switch vault" />
               <div className="activeVaultSafeBody">
                 <div className="activeVaultSafeTop">
-                  <p className="vaultEyebrow">CLOSED VAULT</p>
+                  <p className="vaultEyebrow">MY VAULTS</p>
                   <details className="activeVaultSwitcher">
                     <summary aria-label="Switch vault" title="Switch vault"><span /><span /><span /></summary>
                     <div>
