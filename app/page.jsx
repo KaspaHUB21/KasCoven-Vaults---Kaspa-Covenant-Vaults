@@ -424,6 +424,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
   const [timeLockVaultName, setTimeLockVaultName] = useState("Savings time lock");
   const [timeLockCreateResult, setTimeLockCreateResult] = useState(null);
   const [timeLockCreateBroadcastResult, setTimeLockCreateBroadcastResult] = useState(null);
+  const [creatingAnotherTimeLock, setCreatingAnotherTimeLock] = useState(false);
   const [timeLockUnlockResult, setTimeLockUnlockResult] = useState(null);
   const [timeLockUnlockBroadcastResult, setTimeLockUnlockBroadcastResult] = useState(null);
   const [dmsSeconds, setDmsSeconds] = useState("300");
@@ -434,6 +435,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
   const [dmsBeneficiaryAddress, setDmsBeneficiaryAddress] = useState("");
   const [dmsCreateResult, setDmsCreateResult] = useState(null);
   const [dmsCreateBroadcastResult, setDmsCreateBroadcastResult] = useState(null);
+  const [creatingAnotherDms, setCreatingAnotherDms] = useState(false);
   const [dmsReleaseResult, setDmsReleaseResult] = useState(null);
   const [dmsReleaseBroadcastResult, setDmsReleaseBroadcastResult] = useState(null);
   const [dmsPulseResult, setDmsPulseResult] = useState(null);
@@ -495,6 +497,8 @@ export function KasCovenVaults({ recoveryMode = false }) {
   const canSendDmsPulse = Boolean(activeDmsBroadcasted && accountAddress && dmsOwnerAddress && accountAddress === dmsOwnerAddress);
   const timeLockInputDaa = Math.max(0, Number(timeLockUnlockDaaScore || 0) - currentDaaScore);
   const dmsInputDaa = Math.max(0, Number(dmsUnlockDaaScore || 0) - currentDaaScore);
+  const showTimeLockCreation = creatingAnotherTimeLock || !activeTimeLockBroadcasted;
+  const showDmsCreation = creatingAnotherDms || !activeDmsBroadcasted;
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -645,6 +649,8 @@ export function KasCovenVaults({ recoveryMode = false }) {
           vaults.filter((vault) => vaultSelectionKey(vault) !== spentVaultKey),
         );
         removeActiveDmsVault(address, dmsCreateResult?.draft);
+        setDmsCreateResult(null);
+        setDmsCreateBroadcastResult(null);
       } catch (error) {
         setDmsReleaseResult((current) =>
           current?.ok ? current : { ...errorResult(error), auto: true },
@@ -774,6 +780,47 @@ export function KasCovenVaults({ recoveryMode = false }) {
     }, 0);
   }
 
+  function startAnotherVault(kind) {
+    if (kind === "timeLock") {
+      setSelectedVault("timeLock");
+      setCreatingAnotherTimeLock(true);
+      setTimeLockCreateResult(null);
+      setTimeLockCreateBroadcastResult(null);
+      setTimeLockUnlockResult(null);
+      setTimeLockUnlockBroadcastResult(null);
+      setTimeLockAmountKas("1");
+      setTimeLockVaultName("Savings time lock");
+      setTimeLockUnlockDaaScore(String(currentDaaScore + 6000));
+      setTimeLockDaaTouched(false);
+      return;
+    }
+
+    setSelectedVault("dms");
+    setCreatingAnotherDms(true);
+    setDmsCreateResult(null);
+    setDmsCreateBroadcastResult(null);
+    setDmsReleaseResult(null);
+    setDmsReleaseBroadcastResult(null);
+    setDmsPulseResult(null);
+    setDmsAmountKas("1");
+    setDmsVaultName("Beneficiary safety vault");
+    setDmsBeneficiaryAddress("");
+    setDmsUnlockDaaScore(String(currentDaaScore + 6000));
+    setDmsDaaTouched(false);
+  }
+
+  async function openTimeLockVault() {
+    if (timeLockRemainingDaa > 0) return;
+    const prepared = await createTimeLockUnlockTx();
+    if (prepared?.ok) await broadcastTimeLockUnlockTx(prepared);
+  }
+
+  async function openDmsVault() {
+    if (dmsRemainingDaa > 0) return;
+    const prepared = await createDmsReleaseTx();
+    if (prepared?.ok) await broadcastDmsReleaseTx(prepared);
+  }
+
   async function openMyVaults() {
     const address = getAccountAddress(visibleReport);
     if (showMyVaults) {
@@ -850,6 +897,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
     const address = getAccountAddress(visibleReport) || vault.address || vault.payload?.ownerAddress;
 
     setSelectedVault("timeLock");
+    setCreatingAnotherTimeLock(false);
     setTimeLockCreateResult({ loading: false, ok: true, restored: true, draft: restoredDraft, signed: "" });
     setTimeLockCreateBroadcastResult({ loading: false, ok: true, restored: true, data: broadcast });
     setTimeLockUnlockResult(null);
@@ -873,6 +921,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
     const address = getAccountAddress(visibleReport) || vault.ownerAddress || vault.beneficiaryAddress;
 
     setSelectedVault("dms");
+    setCreatingAnotherDms(false);
     setDmsCreateResult({ loading: false, ok: true, restored: true, restoredFromChain: true, draft: restoredDraft, signed: "" });
     setDmsCreateBroadcastResult({ loading: false, ok: true, restored: true, restoredFromChain: true, data: broadcast });
     setDmsReleaseResult(null);
@@ -1546,6 +1595,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
 
       setTimeLockCreateResult({ loading: false, ok: true, draft: activeDraft, toSignInputs, signOptions, signed });
       setTimeLockCreateBroadcastResult({ loading: false, ok: true, data });
+      setCreatingAnotherTimeLock(false);
       setDiscoveredTimeLockVaults((vaults) => mergeVaultLists(vaults, [activeDraft]));
       saveActiveTimeLockVault(address, { draft: activeDraft, signed, broadcast: data });
     } catch (error) {
@@ -1584,22 +1634,26 @@ export function KasCovenVaults({ recoveryMode = false }) {
 
       if (!response.ok) throw new Error(draft.error || "Could not create time-locked vault unlock transaction.");
 
-      setTimeLockUnlockResult({ loading: false, ok: true, draft, signed: draft.txJson });
+      const result = { loading: false, ok: true, draft, signed: draft.txJson };
+      setTimeLockUnlockResult(result);
+      return result;
     } catch (error) {
       setTimeLockUnlockResult({ loading: false, ok: false, error: error?.message || String(error) });
+      return null;
     }
   }
 
-  async function broadcastTimeLockUnlockTx() {
+  async function broadcastTimeLockUnlockTx(preparedResult = null) {
     setTimeLockUnlockBroadcastResult({ loading: true });
 
     try {
-      if (!timeLockUnlockResult?.ok || typeof timeLockUnlockResult.signed !== "string") {
+      const unlockResult = preparedResult?.ok ? preparedResult : timeLockUnlockResult;
+      if (!unlockResult?.ok || typeof unlockResult.signed !== "string") {
         throw new Error("Create a time-locked vault unlock transaction before broadcasting.");
       }
 
-      if (timeLockRemainingMs > 0) {
-        throw new Error(`The vault is still locked. Try again in ${formatDuration(timeLockRemainingMs)}.`);
+      if (timeLockRemainingDaa > 0) {
+        throw new Error(`The vault is still locked for approximately ${formatDaaDuration(timeLockRemainingDaa)}.`);
       }
 
       const account = visibleReport.accounts?.[0];
@@ -1608,7 +1662,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
       const statusResponse = await fetch(
         apiPath(`/api/timelock-vault?${new URLSearchParams({
           action: "status",
-          unlockTime: timeLockUnlockResult.draft?.unlockTime,
+          unlockTime: unlockResult.draft?.unlockTime,
         }).toString()}`),
         { cache: "no-store" },
       );
@@ -1624,17 +1678,20 @@ export function KasCovenVaults({ recoveryMode = false }) {
       const response = await fetch(apiPath("/api/covenant-broadcast"), {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ signedTxJson: timeLockUnlockResult.signed }),
+        body: JSON.stringify({ signedTxJson: unlockResult.signed }),
       });
       const data = await response.json();
 
       if (!response.ok) throw new Error(data.error || "Broadcast failed.");
       setTimeLockUnlockBroadcastResult({ loading: false, ok: true, data });
-      const spentVaultKey = vaultSelectionKey(timeLockCreateResult?.draft);
+      const spentDraft = timeLockCreateResult?.draft;
+      const spentVaultKey = vaultSelectionKey(spentDraft);
       setDiscoveredTimeLockVaults((vaults) =>
         vaults.filter((vault) => vaultSelectionKey(vault) !== spentVaultKey),
       );
-      removeActiveTimeLockVault(address, timeLockCreateResult?.draft);
+      removeActiveTimeLockVault(address, spentDraft);
+      setTimeLockCreateResult(null);
+      setTimeLockCreateBroadcastResult(null);
     } catch (error) {
       setTimeLockUnlockBroadcastResult({ loading: false, ok: false, error: error?.message || String(error) });
     }
@@ -1762,6 +1819,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
 
       setDmsCreateResult({ loading: false, ok: true, draft: activeDraft, toSignInputs, signOptions, signed });
       setDmsCreateBroadcastResult({ loading: false, ok: true, data });
+      setCreatingAnotherDms(false);
       setDmsAutoReleaseAttempted(false);
       setDiscoveredDmsVaults((vaults) => mergeVaultLists(vaults, [activeDraft]));
       saveActiveDmsVault(address, { draft: activeDraft, signed, broadcast: data });
@@ -1909,39 +1967,46 @@ export function KasCovenVaults({ recoveryMode = false }) {
       );
       const draft = await readApiResponse(response, "Could not create dead-man-switch release transaction.");
 
-      setDmsReleaseResult({ loading: false, ok: true, draft, signed: draft.txJson });
+      const result = { loading: false, ok: true, draft, signed: draft.txJson };
+      setDmsReleaseResult(result);
+      return result;
     } catch (error) {
       setDmsReleaseResult(errorResult(error));
+      return null;
     }
   }
 
-  async function broadcastDmsReleaseTx() {
+  async function broadcastDmsReleaseTx(preparedResult = null) {
     setDmsReleaseBroadcastResult({ loading: true });
 
     try {
-      if (!dmsReleaseResult?.ok || typeof dmsReleaseResult.signed !== "string") {
+      const releaseResult = preparedResult?.ok ? preparedResult : dmsReleaseResult;
+      if (!releaseResult?.ok || typeof releaseResult.signed !== "string") {
         throw new Error("Create a dead-man-switch release transaction before broadcasting.");
       }
 
-      if (dmsRemainingMs > 0) {
-        throw new Error(`The dead-man-switch is still locked. Try again in ${formatDuration(dmsRemainingMs)}.`);
+      if (dmsRemainingDaa > 0) {
+        throw new Error(`The dead-man-switch is still locked for approximately ${formatDaaDuration(dmsRemainingDaa)}.`);
       }
 
       const response = await fetch(apiPath("/api/covenant-broadcast"), {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ signedTxJson: dmsReleaseResult.signed }),
+        body: JSON.stringify({ signedTxJson: releaseResult.signed }),
       });
       const data = await readApiResponse(response, "Could not broadcast dead-man-switch release.");
       setDmsReleaseBroadcastResult({ loading: false, ok: true, data });
 
       const account = visibleReport.accounts?.[0];
       const address = typeof account === "string" ? account : account?.address;
-      const spentVaultKey = vaultSelectionKey(dmsCreateResult?.draft);
+      const spentDraft = dmsCreateResult?.draft;
+      const spentVaultKey = vaultSelectionKey(spentDraft);
       setDiscoveredDmsVaults((vaults) =>
         vaults.filter((vault) => vaultSelectionKey(vault) !== spentVaultKey),
       );
-      removeActiveDmsVault(address, dmsCreateResult?.draft);
+      removeActiveDmsVault(address, spentDraft);
+      setDmsCreateResult(null);
+      setDmsCreateBroadcastResult(null);
     } catch (error) {
       setDmsReleaseBroadcastResult(errorResult(error));
     }
@@ -2194,6 +2259,39 @@ export function KasCovenVaults({ recoveryMode = false }) {
 
       {selectedVault === "timeLock" ? (
         <section className="processPanel">
+          {!showTimeLockCreation ? (
+            <article className="activeVaultSafe">
+              <img src="/timelockedvault.png" alt="Closed time-locked vault" />
+              <div className="activeVaultSafeBody">
+                <p className="vaultEyebrow">CLOSED VAULT</p>
+                <h2>{timeLockCreateResult?.draft?.vaultName || timeLockCreateResult?.draft?.payload?.vaultName || "Time-Locked Vault"}</h2>
+                <strong className="activeVaultCountdown">
+                  {timeLockRemainingDaa > 0 ? `≈ ${formatDaaDuration(timeLockRemainingDaa)} remaining` : "Ready to open"}
+                </strong>
+                <p>Current DAA: {currentDaaScore.toLocaleString()} · Unlock DAA: {activeTimeLockUnlockDaa.toLocaleString()}</p>
+                <div className="activeVaultSafeActions">
+                  <button type="button" onClick={openTimeLockVault} disabled={timeLockRemainingDaa > 0 || timeLockUnlockResult?.loading || timeLockUnlockBroadcastResult?.loading}>
+                    {timeLockUnlockBroadcastResult?.loading ? "Opening…" : "Open Vault"}
+                  </button>
+                  <button type="button" onClick={() => startAnotherVault("timeLock")}>Create another vault</button>
+                  <button type="button" onClick={() => exportVaultRecovery("timeLock", timeLockCreateResult?.draft, timeLockCreateBroadcastResult?.data)}>
+                    Export recovery
+                  </button>
+                </div>
+                <details className="activeVaultDetails">
+                  <summary>Technical details and additional information</summary>
+                  <InfoGrid items={[
+                    { label: "Amount", value: `${timeLockCreateResult?.draft?.lockAmountKas || "?"} KAS` },
+                    { label: "Vault", value: timeLockCreateResult?.draft?.vault?.address },
+                    { label: "Funding transaction", value: timeLockCreateResult?.draft?.deployTxId || timeLockCreateBroadcastResult?.data?.txId },
+                    { label: "Remaining DAA", value: timeLockRemainingDaa.toLocaleString() },
+                  ]} />
+                  <DebugDetails data={timeLockDebug} />
+                </details>
+              </div>
+            </article>
+          ) : null}
+          <div className="vaultCreationFlow" hidden={!showTimeLockCreation}>
           <div className="processHeader">
             <p className="vaultEyebrow">CREATE VAULT</p>
             <h2>Time-Locked Vault</h2>
@@ -2283,8 +2381,9 @@ export function KasCovenVaults({ recoveryMode = false }) {
             <p>Your KAS is now locked by the covenant. Wait for the unlock time before creating the release transaction.</p>
             <DebugDetails data={timeLockCreateBroadcastResult} />
           </StatusNotice>
+          </div>
 
-          <div className="releaseSection" ref={timeLockReleaseRef}>
+          <div className="releaseSection" ref={timeLockReleaseRef} hidden>
             <div>
               <p className="vaultEyebrow">UNLOCK VAULT</p>
               <h3>{timeLockRemainingDaa > 0 ? `${timeLockRemainingDaa.toLocaleString()} DAA until unlock` : "Ready to unlock"}</h3>
@@ -2334,6 +2433,40 @@ export function KasCovenVaults({ recoveryMode = false }) {
         </section>
       ) : (
         <section className="processPanel">
+          {!showDmsCreation ? (
+            <article className="activeVaultSafe">
+              <img src="/deadmansswitch.png" alt="Closed dead-man-switch vault" />
+              <div className="activeVaultSafeBody">
+                <p className="vaultEyebrow">CLOSED VAULT</p>
+                <h2>{dmsCreateResult?.draft?.vaultName || dmsCreateResult?.draft?.payload?.vaultName || "Dead Man's Switch"}</h2>
+                <strong className="activeVaultCountdown">
+                  {dmsRemainingDaa > 0 ? `≈ ${formatDaaDuration(dmsRemainingDaa)} remaining` : "Ready to open"}
+                </strong>
+                <p>Current DAA: {currentDaaScore.toLocaleString()} · Unlock DAA: {activeDmsUnlockDaa.toLocaleString()}</p>
+                <div className="activeVaultSafeActions">
+                  <button type="button" onClick={openDmsVault} disabled={dmsRemainingDaa > 0 || dmsReleaseResult?.loading || dmsReleaseBroadcastResult?.loading}>
+                    {dmsReleaseBroadcastResult?.loading ? "Opening…" : "Open Vault"}
+                  </button>
+                  {canSendDmsPulse ? <button type="button" onClick={() => sendDmsPulse()}>Send owner pulse</button> : null}
+                  <button type="button" onClick={() => startAnotherVault("dms")}>Create another vault</button>
+                  <button type="button" onClick={() => exportVaultRecovery("dms", dmsCreateResult?.draft, dmsCreateBroadcastResult?.data)}>
+                    Export recovery
+                  </button>
+                </div>
+                <details className="activeVaultDetails">
+                  <summary>Technical details and additional information</summary>
+                  <InfoGrid items={[
+                    { label: "Amount", value: `${dmsCreateResult?.draft?.lockAmountKas || "?"} KAS` },
+                    { label: "Vault", value: dmsCreateResult?.draft?.vault?.address },
+                    { label: "Beneficiary", value: dmsCreateResult?.draft?.beneficiaryAddress || dmsCreateResult?.draft?.payload?.beneficiaryAddress },
+                    { label: "Remaining DAA", value: dmsRemainingDaa.toLocaleString() },
+                  ]} />
+                  <DebugDetails data={dmsDebug} />
+                </details>
+              </div>
+            </article>
+          ) : null}
+          <div className="vaultCreationFlow" hidden={!showDmsCreation}>
           <div className="processHeader">
             <p className="vaultEyebrow">CREATE VAULT</p>
             <h2>Dead Man's Switch</h2>
@@ -2418,8 +2551,9 @@ export function KasCovenVaults({ recoveryMode = false }) {
             <p>The beneficiary can now scan their own wallet history and claim after the inactivity timer expires.</p>
             <DebugDetails data={dmsCreateBroadcastResult} />
           </StatusNotice>
+          </div>
 
-          <div className="releaseSection" ref={dmsReleaseRef}>
+          <div className="releaseSection" ref={dmsReleaseRef} hidden>
             <div>
               <p className="vaultEyebrow">CLAIM VAULT</p>
               <h3>{dmsRemainingDaa > 0 ? `Claim opens in ${dmsRemainingDaa.toLocaleString()} DAA` : "Beneficiary claim is available"}</h3>

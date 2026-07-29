@@ -1176,6 +1176,38 @@ body {
 }
 
 .processPanel { padding: clamp(20px, 3vw, 32px); gap: 22px; }
+.vaultCreationFlow { display: grid; gap: 22px; }
+.vaultCreationFlow[hidden], .releaseSection[hidden] { display: none; }
+.activeVaultSafe {
+  display: grid;
+  grid-template-columns: minmax(180px, 300px) minmax(0, 1fr);
+  gap: clamp(20px, 4vw, 48px);
+  align-items: center;
+  min-width: 0;
+  padding: clamp(18px, 3vw, 32px);
+  border: 1px solid rgba(73, 234, 217, 0.25);
+  border-radius: 18px;
+  background: radial-gradient(circle at 12% 50%, rgba(73, 234, 217, 0.12), transparent 32%), rgba(3, 12, 11, 0.7);
+}
+.activeVaultSafe > img { width: 100%; max-height: 290px; object-fit: contain; }
+.activeVaultSafeBody { display: grid; min-width: 0; gap: 12px; }
+.activeVaultSafeBody h2, .activeVaultSafeBody p { margin: 0; }
+.activeVaultCountdown { color: var(--kaspa-soft); font-size: clamp(1.25rem, 3vw, 2rem); }
+.activeVaultSafeActions { display: flex; flex-wrap: wrap; gap: 10px; }
+.activeVaultSafeActions button { border-radius: 999px; }
+.activeVaultSafeActions button:first-child:not(:disabled) {
+  color: #03110f;
+  border-color: var(--kaspa);
+  background: var(--kaspa);
+}
+.activeVaultDetails {
+  min-width: 0;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(73, 234, 217, 0.14);
+}
+.activeVaultDetails summary { cursor: pointer; color: var(--muted); font-weight: 850; }
+.activeVaultDetails[open] summary { margin-bottom: 12px; }
 .processHeader { padding-bottom: 18px; border-bottom: 1px solid rgba(73, 234, 217, 0.1); }
 .processHeader h2 { letter-spacing: -0.035em; }
 .vaultField input, .vaultSelect { border-color: rgba(73, 234, 217, 0.18); border-radius: 11px; background: rgba(3, 10, 9, 0.7); }
@@ -1240,6 +1272,9 @@ body {
 }
 
 @media (max-width: 620px) {
+  .activeVaultSafe { grid-template-columns: 1fr; }
+  .activeVaultSafe > img { max-height: 210px; }
+  .activeVaultSafeActions { display: grid; }
   .vaultHeader {
     position: sticky;
     display: grid;
