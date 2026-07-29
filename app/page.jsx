@@ -444,6 +444,8 @@ export function KasCovenVaults({ recoveryMode = false }) {
   const [currentDaaScore, setCurrentDaaScore] = useState(0);
   const [selectedVault, setSelectedVault] = useState("timeLock");
   const [showMyVaults, setShowMyVaults] = useState(recoveryMode);
+  const [myVaultsLoading, setMyVaultsLoading] = useState(false);
+  const [myVaultsError, setMyVaultsError] = useState("");
   const [discoveredTimeLockVaults, setDiscoveredTimeLockVaults] = useState([]);
   const [discoveredDmsVaults, setDiscoveredDmsVaults] = useState([]);
   const timeLockReleaseRef = useRef(null);
@@ -770,10 +772,66 @@ export function KasCovenVaults({ recoveryMode = false }) {
 
   async function openMyVaults() {
     const address = getAccountAddress(visibleReport);
-    setShowMyVaults((current) => !current);
+    if (showMyVaults) {
+      setShowMyVaults(false);
+      return;
+    }
 
+    setShowMyVaults(true);
     if (address?.startsWith("kaspa:")) {
-      await scanOwnedVaults(address);
+      await refreshMyVaults(address);
+    }
+  }
+
+  async function refreshMyVaults(address) {
+    if (!address?.startsWith("kaspa:")) return false;
+
+    setMyVaultsLoading(true);
+    setMyVaultsError("");
+
+    try {
+      const queries = [
+        `/api/timelock-vault?${new URLSearchParams({ action: "scan", address })}`,
+        `/api/timelock-vault?${new URLSearchParams({ action: "dms-scan", ownerAddress: address })}`,
+        `/api/timelock-vault?${new URLSearchParams({ action: "dms-scan", beneficiaryAddress: address })}`,
+      ];
+      const responses = await Promise.all(queries.map((url) => fetch(apiPath(url), { cache: "no-store" })));
+      const results = await Promise.all(responses.map((response) => response.json()));
+      const failedIndex = responses.findIndex((response) => !response.ok);
+      if (failedIndex >= 0) {
+        throw new Error(results[failedIndex]?.error || "Could not complete the vault scan.");
+      }
+
+      const timeLockVaults = Array.isArray(results[0]?.vaults) ? results[0].vaults : [];
+      const dmsVaults = mergeVaultLists(
+        Array.isArray(results[1]?.vaults) ? results[1].vaults : [],
+        Array.isArray(results[2]?.vaults) ? results[2].vaults : [],
+      );
+
+      // Publish one complete snapshot so the panel never renders partial scan results.
+      setDiscoveredTimeLockVaults(timeLockVaults);
+      setDiscoveredDmsVaults(dmsVaults);
+
+      const activeTimeLockKeys = new Set(timeLockVaults.map(vaultSelectionKey));
+      for (const record of loadActiveTimeLockVaults(address)) {
+        if (!activeTimeLockKeys.has(storedVaultRecordKey(record))) {
+          removeActiveTimeLockVault(address, record.draft);
+        }
+      }
+
+      const activeDmsKeys = new Set(dmsVaults.map(vaultSelectionKey));
+      for (const record of loadActiveDmsVaults(address)) {
+        if (!activeDmsKeys.has(storedVaultRecordKey(record))) {
+          removeActiveDmsVault(address, record.draft);
+        }
+      }
+
+      return Boolean(timeLockVaults.length || dmsVaults.length);
+    } catch (error) {
+      setMyVaultsError(error?.message || String(error));
+      return false;
+    } finally {
+      setMyVaultsLoading(false);
     }
   }
 
@@ -2041,8 +2099,13 @@ export function KasCovenVaults({ recoveryMode = false }) {
             <button type="button" onClick={() => scanDmsVaultsForBeneficiary(accountAddress)} disabled={!accountAddress}>
               Scan beneficiary vaults
             </button>
+            <button type="button" onClick={() => refreshMyVaults(accountAddress)} disabled={!accountAddress || myVaultsLoading}>
+              {myVaultsLoading ? "Scanning…" : "Refresh all vaults"}
+            </button>
           </div>
-          {ownedVaults.length ? (
+          {myVaultsLoading ? <p className="emptyVaults">Scanning all owner and beneficiary vaults…</p> : null}
+          {myVaultsError ? <p className="emptyVaults">Vault scan failed: {myVaultsError}</p> : null}
+          {!myVaultsLoading && ownedVaults.length ? (
             <div className="ownedVaultGrid">
               {ownedVaults.map((vault) => (
                 <div className="ownedVault" key={vault.id}>
@@ -2064,9 +2127,9 @@ export function KasCovenVaults({ recoveryMode = false }) {
                 </div>
               ))}
             </div>
-          ) : (
+          ) : !myVaultsLoading ? (
             <p className="emptyVaults">No active vaults found for this browser session or wallet scan yet.</p>
-          )}
+          ) : null}
         </section>
       ) : null}
 
