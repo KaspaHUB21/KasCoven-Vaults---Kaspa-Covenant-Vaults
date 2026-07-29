@@ -2410,7 +2410,6 @@ export function KasCovenVaults({ recoveryMode = false }) {
               <span>Estimated unlock: {timeLockInputDaa ? new Date(Date.now() + Math.ceil(timeLockInputDaa / 10) * 1000).toLocaleString() : "Choose a future DAA score"}</span>
               <small>Time is estimated at approximately 10 DAA per second. The DAA score is authoritative.</small>
             </div>
-            <p className="vaultFeeWarning wide">No fixed fee cap: when opening this vault, the owner wallet signs the current network fee. Older vaults retain their original legacy fee limit.</p>
           </div>
 
           <div className="stepGrid">
