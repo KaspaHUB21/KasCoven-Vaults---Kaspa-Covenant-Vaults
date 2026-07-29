@@ -1762,11 +1762,19 @@ export function KasCovenVaults({ recoveryMode = false }) {
     }
   }
 
-  async function sendDmsPulse() {
+  async function sendDmsPulse(vaultOverride = null) {
     setDmsPulseResult({ loading: true });
 
     try {
-      if (!activeDmsBroadcasted) {
+      const overrideDraft = vaultOverride?.vault?.address
+        ? {
+            ...vaultOverride,
+            beneficiaryAddress: vaultOverride.beneficiaryAddress || vaultOverride.payload?.beneficiaryAddress,
+          }
+        : null;
+      const draft = overrideDraft || dmsCreateResult?.draft || {};
+
+      if (!draft?.vault?.address) {
         throw new Error("Select or create an active dead-man-switch vault before sending a pulse.");
       }
 
@@ -1780,16 +1788,16 @@ export function KasCovenVaults({ recoveryMode = false }) {
         visibleReport.publicKey ||
         (typeof account === "object" ? account?.publicKey || account?.pubkey || account?.pubKey : null) ||
         (typeof provider.getPublicKey === "function" ? await provider.getPublicKey().catch(() => null) : null);
-      const draft = dmsCreateResult?.draft || {};
       const beneficiaryAddress = draft.beneficiaryAddress || draft.payload?.beneficiaryAddress || dmsBeneficiaryAddress;
       const ownerPublicKey = draft.ownerPublicKey || draft.payload?.ownerPublicKey || publicKey;
       const inactivityDaaBlocks = draft.inactivityDaaBlocks || draft.payload?.inactivityDaaBlocks;
+      const ownerAddress = draft.ownerAddress || draft.payload?.ownerAddress;
 
       if (!isKaspaAddress(address)) {
         throw new Error("Connect the owner wallet before sending a pulse.");
       }
 
-      if (draft.ownerAddress && address !== draft.ownerAddress) {
+      if (ownerAddress && address !== ownerAddress) {
         throw new Error("Only the vault creator can send an owner pulse for this dead-man-switch vault.");
       }
 
@@ -1844,10 +1852,16 @@ export function KasCovenVaults({ recoveryMode = false }) {
         lastPulseAtIso: new Date().toISOString(),
       };
 
-      setDmsCreateResult((current) => ({ ...(current || {}), loading: false, ok: true, draft: refreshedDraft }));
-      setDmsCreateBroadcastResult((current) => current || { loading: false, ok: true, data: { status: "Vault selected" } });
+      setSelectedVault("dms");
+      setDmsCreateResult({ loading: false, ok: true, restored: true, restoredFromChain: true, draft: refreshedDraft });
+      setDmsCreateBroadcastResult({ loading: false, ok: true, restored: true, data: { status: "Vault selected", txId: refreshedDraft.deployTxId } });
       setDmsPulseResult({ loading: false, ok: true, draft: pulseDraft, data });
-      setDiscoveredDmsVaults((vaults) => mergeVaultLists(vaults, [refreshedDraft]));
+      setDiscoveredDmsVaults((vaults) =>
+        mergeVaultLists(
+          vaults.filter((vault) => vault.vault?.address !== refreshedDraft.vault?.address),
+          [refreshedDraft],
+        ),
+      );
       saveActiveDmsVault(address, { draft: refreshedDraft, signed: "", broadcast: data });
     } catch (error) {
       setDmsPulseResult(errorResult(error));
@@ -2121,6 +2135,14 @@ export function KasCovenVaults({ recoveryMode = false }) {
                   <button type="button" onClick={() => (vault.kind === "timeLock" ? selectTimeLockVault(vault.raw) : selectDmsVault(vault.raw))}>
                     {vault.kind === "timeLock" ? "Select to unlock" : "Select to claim"}
                   </button>
+                  {vault.kind === "dms" &&
+                  accountAddress === (vault.raw.ownerAddress || vault.raw.payload?.ownerAddress) &&
+                  (vault.raw.ownerPublicKey || vault.raw.payload?.ownerPublicKey) &&
+                  (vault.raw.inactivityDaaBlocks || vault.raw.payload?.inactivityDaaBlocks) ? (
+                    <button type="button" onClick={() => sendDmsPulse(vault.raw)}>
+                      Send owner pulse
+                    </button>
+                  ) : null}
                   <button type="button" onClick={() => exportRawVaultRecovery(vault.kind, vault.raw)}>
                     Export recovery
                   </button>
@@ -2406,7 +2428,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
                 Scan beneficiary vaults
               </button>
               {canSendDmsPulse ? (
-                <button type="button" onClick={sendDmsPulse}>
+                <button type="button" onClick={() => sendDmsPulse()}>
                   Send owner pulse
                 </button>
               ) : null}
@@ -2461,6 +2483,53 @@ export function KasCovenVaults({ recoveryMode = false }) {
           </StatusNotice>
         </section>
       )}
+
+      <section className="myVaultsPanel claimVaultsPanel">
+        <div>
+          <p className="vaultEyebrow">CLAIM &amp; MANAGE</p>
+          <h2>All active vaults</h2>
+          <p>Choose any Time-Lock or Dead Man's Switch without switching the creation form first.</p>
+        </div>
+        <div className="myVaultActions">
+          <button type="button" onClick={() => refreshMyVaults(accountAddress)} disabled={!accountAddress || myVaultsLoading}>
+            {myVaultsLoading ? "Scanning…" : "Refresh all vaults"}
+          </button>
+        </div>
+        {myVaultsLoading ? <p className="emptyVaults">Scanning all owner and beneficiary vaults…</p> : null}
+        {!myVaultsLoading && ownedVaults.length ? (
+          <div className="ownedVaultGrid">
+            {ownedVaults.map((vault) => (
+              <div className="ownedVault" key={`manage-${vault.id}`}>
+                <strong>{vault.name}</strong>
+                <small>{vault.type}</small>
+                <span>{vault.amount}</span>
+                <code>{vault.address}</code>
+                {vault.beneficiary ? <small>Beneficiary: {shortAddress(vault.beneficiary)}</small> : null}
+                <small>{vault.ready ? "Ready to release" : "Still locked"}</small>
+                <small>Current DAA: {currentDaaScore.toLocaleString()}</small>
+                <small>Unlock DAA: {vault.unlockDaa ? vault.unlockDaa.toLocaleString() : "Pending"}</small>
+                <small>Estimated time: ≈ {formatDaaDuration(vault.remainingDaa)}</small>
+                <button type="button" onClick={() => (vault.kind === "timeLock" ? selectTimeLockVault(vault.raw) : selectDmsVault(vault.raw))}>
+                  {vault.kind === "timeLock" ? "Open unlock controls" : "Open claim controls"}
+                </button>
+                {vault.kind === "dms" &&
+                accountAddress === (vault.raw.ownerAddress || vault.raw.payload?.ownerAddress) &&
+                (vault.raw.ownerPublicKey || vault.raw.payload?.ownerPublicKey) &&
+                (vault.raw.inactivityDaaBlocks || vault.raw.payload?.inactivityDaaBlocks) ? (
+                  <button type="button" onClick={() => sendDmsPulse(vault.raw)}>
+                    Send owner pulse
+                  </button>
+                ) : null}
+                <button type="button" onClick={() => exportRawVaultRecovery(vault.kind, vault.raw)}>
+                  Export recovery
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : !myVaultsLoading ? (
+          <p className="emptyVaults">{accountAddress ? "No active vaults found." : "Connect a wallet to load all active vaults."}</p>
+        ) : null}
+      </section>
 
       <footer className="footer-flow" data-darkreader-ignore>
         <a href="https://kaslab.space/" aria-label="Visit HUB21 at kaslab.space">Developed by HUB21</a>
