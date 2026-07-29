@@ -3,6 +3,7 @@ import test from "node:test";
 import { kasDecimalToSompi, outpointMatches } from "../lib/vault-values.js";
 import { parseVaultPayload } from "../lib/vault-index.js";
 import { enforceSameOrigin, readJsonBody } from "../lib/api-security.js";
+import { verifyVaultCreationTransaction } from "../lib/vault-transaction.js";
 
 test("KAS decimal conversion is exact at eight decimals and above Number.MAX_SAFE_INTEGER", () => {
   assert.equal(kasDecimalToSompi("1.00000001"), 100_000_001n);
@@ -48,4 +49,36 @@ test("JSON reader rejects bodies above the configured limit", async () => {
     body: "{}",
   });
   await assert.rejects(() => readJsonBody(request, 100), /too large/i);
+});
+
+test("indexing invariant binds metadata to owner input, exact amount and vault script", () => {
+  const kaspa = {
+    payToAddressScript: () => ({ toJSON: () => ({ version: 0, script: "aabb" }) }),
+  };
+  const payload = {
+    action: "create",
+    vaultAddress: "kaspa:vault",
+    ownerAddress: "kaspa:owner",
+    lockAmountSompi: "100000000",
+  };
+  const transaction = {
+    inputs: [{ utxo: { address: "kaspa:owner" } }],
+    outputs: [{ value: 100_000_000n, scriptPublicKey: { version: 0, script: "aabb" } }],
+  };
+  assert.equal(verifyVaultCreationTransaction(kaspa, transaction, payload), true);
+  assert.equal(verifyVaultCreationTransaction(kaspa, { ...transaction, inputs: [] }, payload), false);
+  assert.equal(
+    verifyVaultCreationTransaction(kaspa, {
+      ...transaction,
+      outputs: [{ value: 99_999_999n, scriptPublicKey: { version: 0, script: "aabb" } }],
+    }, payload),
+    false,
+  );
+  assert.equal(
+    verifyVaultCreationTransaction(kaspa, {
+      ...transaction,
+      outputs: [{ value: 100_000_000n, scriptPublicKey: { version: 0, script: "ccdd" } }],
+    }, payload),
+    false,
+  );
 });
