@@ -47,7 +47,7 @@ function formatDaaDuration(daaBlocks) {
   seconds %= 3600;
   const minutes = Math.floor(seconds / 60);
   seconds %= 60;
-  return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+  return `${days}d:${String(hours).padStart(2, "0")}h:${String(minutes).padStart(2, "0")}m:${String(seconds).padStart(2, "0")}s`;
 }
 
 function adjustDaaWithWheel(event, setValue, minimum) {
@@ -372,7 +372,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
   const [timeLockSeconds, setTimeLockSeconds] = useState("300");
   const [timeLockUnlockDaaScore, setTimeLockUnlockDaaScore] = useState("");
   const [timeLockDaaTouched, setTimeLockDaaTouched] = useState(false);
-  const [timeLockAmountKas, setTimeLockAmountKas] = useState("0.2");
+  const [timeLockAmountKas, setTimeLockAmountKas] = useState("1");
   const [timeLockVaultName, setTimeLockVaultName] = useState("Savings time lock");
   const [timeLockCreateResult, setTimeLockCreateResult] = useState(null);
   const [timeLockCreateBroadcastResult, setTimeLockCreateBroadcastResult] = useState(null);
@@ -381,7 +381,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
   const [dmsSeconds, setDmsSeconds] = useState("300");
   const [dmsUnlockDaaScore, setDmsUnlockDaaScore] = useState("");
   const [dmsDaaTouched, setDmsDaaTouched] = useState(false);
-  const [dmsAmountKas, setDmsAmountKas] = useState("0.2");
+  const [dmsAmountKas, setDmsAmountKas] = useState("1");
   const [dmsVaultName, setDmsVaultName] = useState("Beneficiary safety vault");
   const [dmsBeneficiaryAddress, setDmsBeneficiaryAddress] = useState("");
   const [dmsCreateResult, setDmsCreateResult] = useState(null);
@@ -1343,6 +1343,9 @@ export function KasCovenVaults({ recoveryMode = false }) {
       if (!address?.startsWith("kaspa:")) {
         throw new Error("Connect Kasware first so the time-lock test can use your Kaspa address.");
       }
+      if (!parsePositiveKas(timeLockAmountKas) || Number(timeLockAmountKas) < 1) {
+        throw new Error("The minimum vault amount is 1 KAS.");
+      }
       if (!Number.isSafeInteger(Number(timeLockUnlockDaaScore)) || Number(timeLockUnlockDaaScore) <= currentDaaScore) {
         setTimeLockUnlockDaaScore(String(currentDaaScore + 1));
         throw new Error("Unlock DAA score must be a whole number in the future.");
@@ -1542,8 +1545,8 @@ export function KasCovenVaults({ recoveryMode = false }) {
         throw new Error("The beneficiary address is not a valid Kaspa address. Paste the full kaspa: address before preparing the dead-man-switch.");
       }
 
-      if (!parsePositiveKas(dmsAmountKas)) {
-        throw new Error("Enter a valid KAS amount greater than 0 before preparing the dead-man-switch.");
+      if (!parsePositiveKas(dmsAmountKas) || Number(dmsAmountKas) < 1) {
+        throw new Error("The minimum dead-man-switch vault amount is 1 KAS.");
       }
       if (!Number.isSafeInteger(Number(dmsUnlockDaaScore)) || Number(dmsUnlockDaaScore) <= currentDaaScore) {
         setDmsUnlockDaaScore(String(currentDaaScore + 1));
@@ -2058,7 +2061,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
             </label>
             <label className="vaultField">
               Amount to lock
-              <input value={timeLockAmountKas} onChange={(event) => setTimeLockAmountKas(event.target.value)} inputMode="decimal" />
+              <input type="number" min="1" step="0.01" value={timeLockAmountKas} onChange={(event) => setTimeLockAmountKas(event.target.value)} inputMode="decimal" />
             </label>
             <label className="vaultField">
               Current DAA score
@@ -2078,7 +2081,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
             </label>
             <div className="vaultDaaEstimate wide">
               <strong>{timeLockInputDaa.toLocaleString()} DAA until unlock</strong>
-              <span>Estimated time: ≈ {formatDaaDuration(timeLockInputDaa)}</span>
+              <span>Estimated time (days:hours:minutes:seconds): ≈ {formatDaaDuration(timeLockInputDaa)}</span>
               <span>Estimated unlock: {timeLockInputDaa ? new Date(Date.now() + Math.ceil(timeLockInputDaa / 10) * 1000).toLocaleString() : "Choose a future DAA score"}</span>
               <small>Time is estimated at approximately 10 DAA per second. The DAA score is authoritative.</small>
             </div>
@@ -2193,7 +2196,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
             </label>
             <label className="vaultField">
               Amount to lock
-              <input value={dmsAmountKas} onChange={(event) => setDmsAmountKas(event.target.value)} inputMode="decimal" />
+              <input type="number" min="1" step="0.01" value={dmsAmountKas} onChange={(event) => setDmsAmountKas(event.target.value)} inputMode="decimal" />
             </label>
             <label className="vaultField">
               Current DAA score
@@ -2217,7 +2220,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
             </label>
             <div className="vaultDaaEstimate wide">
               <strong>{dmsInputDaa.toLocaleString()} DAA inactivity window</strong>
-              <span>Estimated time: ≈ {formatDaaDuration(dmsInputDaa)}</span>
+              <span>Estimated time (days:hours:minutes:seconds): ≈ {formatDaaDuration(dmsInputDaa)}</span>
               <span>Initial estimated unlock: {dmsInputDaa ? new Date(Date.now() + Math.ceil(dmsInputDaa / 10) * 1000).toLocaleString() : "Choose a future DAA score"}</span>
               <small>After a heartbeat, the unlock DAA becomes heartbeat DAA + this inactivity window.</small>
             </div>

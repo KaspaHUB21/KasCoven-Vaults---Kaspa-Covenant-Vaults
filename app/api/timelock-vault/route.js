@@ -7,7 +7,8 @@ const TOCCATA_FEE_RATE = 100n;
 const FEE_SAFETY_BUFFER_SOMPI = 50_000n;
 const MIN_RETURN_SOMPI = 1_000_000n;
 const MIN_COMPUTE_MASS = 120_000n;
-const DEFAULT_LOCK_SOMPI = 20_000_000n;
+const DEFAULT_LOCK_SOMPI = 100_000_000n;
+const MIN_LOCK_SOMPI = 100_000_000n;
 const DEFAULT_LOCK_SECONDS = 300;
 const MAINNET_BLOCKS_PER_SECOND = 10;
 const VAULT_PROTOCOL = "kaslab-time-lock-vault-v1";
@@ -38,8 +39,10 @@ function asBigInt(value) {
 }
 
 function kasToSompi(value) {
-  const numeric = Number(value || 0);
-  if (!Number.isFinite(numeric) || numeric <= 0) return DEFAULT_LOCK_SOMPI;
+  const raw = String(value ?? "").trim();
+  if (!raw) return DEFAULT_LOCK_SOMPI;
+  const numeric = Number(raw);
+  if (!Number.isFinite(numeric) || numeric <= 0) return 0n;
   return BigInt(Math.round(numeric * 100000000));
 }
 
@@ -405,6 +408,9 @@ async function createVaultDraft(kaspa, searchParams) {
   if (!isValidKaspaAddress(kaspa, address)) {
     return Response.json({ error: "A valid Kaspa address is required." }, { status: 400 });
   }
+  if (lockAmount < MIN_LOCK_SOMPI) {
+    return Response.json({ error: "The minimum vault amount is 1 KAS." }, { status: 400 });
+  }
   if (!Number.isSafeInteger(unlockTime) || lockDaaBlocks < 1) {
     return Response.json({ error: "Unlock DAA score must be a whole number above the current DAA score." }, { status: 400 });
   }
@@ -540,6 +546,9 @@ async function createWizardVaultDraft(kaspa, searchParams) {
   if (!isValidKaspaAddress(kaspa, address)) {
     return Response.json({ error: "A valid creator Kaspa address is required." }, { status: 400 });
   }
+  if (lockAmount < MIN_LOCK_SOMPI) {
+    return Response.json({ error: "The minimum prize vault amount is 1 KAS." }, { status: 400 });
+  }
   if (!Number.isSafeInteger(unlockTime) || lockDaaBlocks < 1) {
     return Response.json({ error: "Unlock DAA score must be a whole number above the current DAA score." }, { status: 400 });
   }
@@ -650,6 +659,9 @@ async function createDeadManSwitchDraft(kaspa, searchParams) {
 
   if (!isValidKaspaAddress(kaspa, address)) {
     return Response.json({ error: "A valid owner Kaspa address is required." }, { status: 400 });
+  }
+  if (lockAmount < MIN_LOCK_SOMPI) {
+    return Response.json({ error: "The minimum dead-man-switch vault amount is 1 KAS." }, { status: 400 });
   }
 
   if (!isValidKaspaAddress(kaspa, beneficiaryAddress)) {

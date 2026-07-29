@@ -15,7 +15,7 @@ function formatEstimatedDuration(daaBlocks) {
   seconds %= 3600;
   const minutes = Math.floor(seconds / 60);
   seconds %= 60;
-  return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+  return `${days}d:${String(hours).padStart(2, "0")}h:${String(minutes).padStart(2, "0")}m:${String(seconds).padStart(2, "0")}s`;
 }
 
 function adjustDaaWithWheel(event, setValue, minimum) {
@@ -215,6 +215,9 @@ export default function WizardPage() {
     setCreateState({ loading: true });
     try {
       if (!wallet || !address || !publicKey) throw new Error("Connect a wallet before creating a prize.");
+      if (!Number.isFinite(Number(amountKas)) || Number(amountKas) < 1) {
+        throw new Error("The minimum prize vault amount is 1 KAS.");
+      }
       if (!Number.isSafeInteger(Number(unlockDaaScore)) || Number(unlockDaaScore) <= currentDaaScore) {
         setUnlockDaaScore(String(currentDaaScore + 1));
         throw new Error("Unlock DAA score must be a whole number in the future.");
@@ -330,14 +333,14 @@ export default function WizardPage() {
         </div>
         <div className="wizardForm">
           <label>Vault name<input value={vaultName} maxLength={64} onChange={(event) => { setVaultName(event.target.value); setCreateState(null); }} /></label>
-          <label>Prize in KAS<input type="number" min="0.01" step="0.01" value={amountKas} onChange={(event) => { setAmountKas(event.target.value); setCreateState(null); }} /></label>
+          <label>Prize in KAS<input type="number" min="1" step="0.01" value={amountKas} onChange={(event) => { setAmountKas(event.target.value); setCreateState(null); }} /></label>
           <label>Current DAA score<input type="text" value={currentDaaScore || "Loading…"} readOnly /></label>
           <label>Unlock DAA score<input type="number" min={currentDaaScore + 1} step="100" value={unlockDaaScore} onChange={(event) => { unlockDaaTouchedRef.current = true; setUnlockDaaScore(event.target.value); setCreateState(null); }} onWheel={(event) => { unlockDaaTouchedRef.current = true; adjustDaaWithWheel(event, setUnlockDaaScore, currentDaaScore + 1); }} /></label>
           <div className="wizardDaaHint">
             {unlockDaaScore && currentDaaScore ? (
               <>
                 <strong>{unlockDaaDifference.toLocaleString()} DAA until unlock</strong>
-                <span>Estimated real time: ≈ {formatEstimatedDuration(unlockDaaDifference)}</span>
+                <span>Estimated time (days:hours:minutes:seconds): ≈ {formatEstimatedDuration(unlockDaaDifference)}</span>
                 <span>Estimated unlock: {estimatedUnlockDate?.toLocaleString()}</span>
                 <small>Estimate based on approximately 10 DAA per second. Kaspa DAA score is authoritative.</small>
               </>
