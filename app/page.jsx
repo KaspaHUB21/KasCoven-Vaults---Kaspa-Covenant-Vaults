@@ -640,6 +640,10 @@ export function KasCovenVaults({ recoveryMode = false }) {
 
         const account = visibleReport.accounts?.[0];
         const address = typeof account === "string" ? account : account?.address;
+        const spentVaultKey = vaultSelectionKey(dmsCreateResult?.draft);
+        setDiscoveredDmsVaults((vaults) =>
+          vaults.filter((vault) => vaultSelectionKey(vault) !== spentVaultKey),
+        );
         removeActiveDmsVault(address, dmsCreateResult?.draft);
       } catch (error) {
         setDmsReleaseResult((current) =>
@@ -1542,7 +1546,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
 
       setTimeLockCreateResult({ loading: false, ok: true, draft: activeDraft, toSignInputs, signOptions, signed });
       setTimeLockCreateBroadcastResult({ loading: false, ok: true, data });
-      setDiscoveredTimeLockVaults((vaults) => [activeDraft, ...vaults.filter((vault) => vault.vault?.address !== activeDraft.vault?.address)]);
+      setDiscoveredTimeLockVaults((vaults) => mergeVaultLists(vaults, [activeDraft]));
       saveActiveTimeLockVault(address, { draft: activeDraft, signed, broadcast: data });
     } catch (error) {
       setTimeLockCreateBroadcastResult({ loading: false, ok: false, error: error?.message || String(error) });
@@ -1626,6 +1630,10 @@ export function KasCovenVaults({ recoveryMode = false }) {
 
       if (!response.ok) throw new Error(data.error || "Broadcast failed.");
       setTimeLockUnlockBroadcastResult({ loading: false, ok: true, data });
+      const spentVaultKey = vaultSelectionKey(timeLockCreateResult?.draft);
+      setDiscoveredTimeLockVaults((vaults) =>
+        vaults.filter((vault) => vaultSelectionKey(vault) !== spentVaultKey),
+      );
       removeActiveTimeLockVault(address, timeLockCreateResult?.draft);
     } catch (error) {
       setTimeLockUnlockBroadcastResult({ loading: false, ok: false, error: error?.message || String(error) });
@@ -1851,6 +1859,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
         lastPulseTxId: data.txId || data.result?.transactionId || null,
         lastPulseAtIso: new Date().toISOString(),
       };
+      const previousVaultKey = vaultSelectionKey(draft);
 
       setSelectedVault("dms");
       setDmsCreateResult({ loading: false, ok: true, restored: true, restoredFromChain: true, draft: refreshedDraft });
@@ -1858,7 +1867,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
       setDmsPulseResult({ loading: false, ok: true, draft: pulseDraft, data });
       setDiscoveredDmsVaults((vaults) =>
         mergeVaultLists(
-          vaults.filter((vault) => vault.vault?.address !== refreshedDraft.vault?.address),
+          vaults.filter((vault) => vaultSelectionKey(vault) !== previousVaultKey),
           [refreshedDraft],
         ),
       );
@@ -1928,6 +1937,10 @@ export function KasCovenVaults({ recoveryMode = false }) {
 
       const account = visibleReport.accounts?.[0];
       const address = typeof account === "string" ? account : account?.address;
+      const spentVaultKey = vaultSelectionKey(dmsCreateResult?.draft);
+      setDiscoveredDmsVaults((vaults) =>
+        vaults.filter((vault) => vaultSelectionKey(vault) !== spentVaultKey),
+      );
       removeActiveDmsVault(address, dmsCreateResult?.draft);
     } catch (error) {
       setDmsReleaseBroadcastResult(errorResult(error));
