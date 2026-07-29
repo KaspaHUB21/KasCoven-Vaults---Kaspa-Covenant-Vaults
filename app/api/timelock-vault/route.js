@@ -325,6 +325,30 @@ async function fetchWithRetry(url, options = {}, attempts = 3) {
   throw lastError || new Error("Kaspa API request failed.");
 }
 
+async function fetchAddressUtxos(address, attempts = 3) {
+  let lastUtxos = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const response = await fetchWithRetry(
+      kaspaApiUrl(`/addresses/${address}/utxos`),
+      { cache: "no-store" },
+      2,
+    );
+    if (response.ok) {
+      const utxos = await response.json();
+      if (Array.isArray(utxos)) {
+        lastUtxos = utxos;
+        if (utxos.length) return utxos;
+      }
+    }
+    if (attempt < attempts) {
+      await new Promise((resolve) => setTimeout(resolve, attempt * 120));
+    }
+  }
+
+  return lastUtxos;
+}
+
 async function findLatestDeadManSwitchPulse(beneficiaryAddress, vaultAddress) {
   if (!beneficiaryAddress?.startsWith("kaspa:") || !vaultAddress?.startsWith("kaspa:")) return null;
 
@@ -873,41 +897,43 @@ async function scanActiveVaults(kaspa, searchParams) {
         continue;
       }
 
-      const utxoResponse = await fetch(kaspaApiUrl(`/addresses/${payload.vaultAddress}/utxos`), {
-        cache: "no-store",
+      const utxos = await fetchAddressUtxos(payload.vaultAddress);
+      if (!Array.isArray(utxos)) continue;
+
+      const deployTxId = String(transaction.transaction_id || "");
+      const activeUtxos = spendableUtxos(utxos).filter((item) => {
+        const outpoint = item?.outpoint || {};
+        return String(outpoint.transactionId || outpoint.transaction_id || outpoint.txId || "") === deployTxId;
       });
-      if (!utxoResponse.ok) continue;
 
-      const utxos = await utxoResponse.json();
-      const selected = pickSpendableUtxo(utxos);
-      if (!selected) continue;
+      for (const selected of activeUtxos) {
+        const currentBlueScore = await getCurrentBlueScore();
+        const remainingDaaBlocks = Math.max(0, Number(payload.unlockTime) - currentBlueScore);
+        const estimatedRemainingSeconds = Math.ceil(remainingDaaBlocks / MAINNET_BLOCKS_PER_SECOND);
+        const amount = asBigInt(selected?.utxoEntry?.amount);
 
-      const currentBlueScore = await getCurrentBlueScore();
-      const remainingDaaBlocks = Math.max(0, Number(payload.unlockTime) - currentBlueScore);
-      const estimatedRemainingSeconds = Math.ceil(remainingDaaBlocks / MAINNET_BLOCKS_PER_SECOND);
-      const amount = asBigInt(selected?.utxoEntry?.amount);
-
-      candidates.push({
-        status: "Active time-locked vault found",
-        vaultName: payload.vaultName || "Time-Locked Vault",
-        address,
-        deployTxId: transaction.transaction_id,
-        acceptingBlockTime: transaction.accepting_block_time || transaction.block_time || null,
-        vault,
-        currentBlueScore,
-        lockDaaBlocks: Number(payload.lockDaaBlocks || 0),
-        lockSeconds: Number(payload.lockSeconds || 0),
-        estimatedUnlockTimeIso: new Date(Date.now() + estimatedRemainingSeconds * 1000).toISOString(),
-        selectedOutpoint: selected.outpoint,
-        selectedAmountSompi: amount.toString(),
-        selectedAmountKas: (Number(amount) / 100000000).toString(),
-        lockAmountSompi: String(payload.lockAmountSompi || amount.toString()),
-        lockAmountKas: (Number(asBigInt(payload.lockAmountSompi || amount)) / 100000000).toString(),
-        readyToBroadcast: remainingDaaBlocks === 0,
-        remainingDaaBlocks,
-        estimatedRemainingSeconds,
-        payload,
-      });
+        candidates.push({
+          status: "Active time-locked vault found",
+          vaultName: payload.vaultName || "Time-Locked Vault",
+          address,
+          deployTxId,
+          acceptingBlockTime: transaction.accepting_block_time || transaction.block_time || null,
+          vault,
+          currentBlueScore,
+          lockDaaBlocks: Number(payload.lockDaaBlocks || 0),
+          lockSeconds: Number(payload.lockSeconds || 0),
+          estimatedUnlockTimeIso: new Date(Date.now() + estimatedRemainingSeconds * 1000).toISOString(),
+          selectedOutpoint: selected.outpoint,
+          selectedAmountSompi: amount.toString(),
+          selectedAmountKas: (Number(amount) / 100000000).toString(),
+          lockAmountSompi: String(payload.lockAmountSompi || amount.toString()),
+          lockAmountKas: (Number(asBigInt(payload.lockAmountSompi || amount)) / 100000000).toString(),
+          readyToBroadcast: remainingDaaBlocks === 0,
+          remainingDaaBlocks,
+          estimatedRemainingSeconds,
+          payload,
+        });
+      }
     }
   }
 
@@ -1002,12 +1028,8 @@ async function scanDeadManSwitchVaults(kaspa, searchParams) {
         continue;
       }
 
-      const utxoResponse = await fetch(kaspaApiUrl(`/addresses/${payload.vaultAddress}/utxos`), {
-        cache: "no-store",
-      });
-      if (!utxoResponse.ok) continue;
-
-      const utxos = await utxoResponse.json();
+      const utxos = await fetchAddressUtxos(payload.vaultAddress);
+      if (!Array.isArray(utxos)) continue;
       const activeUtxos = spendableUtxos(utxos);
       if (!activeUtxos.length) continue;
 
@@ -1538,12 +1560,9 @@ async function listWizardVaults(kaspa) {
     const vault = makeWizardVault(kaspa, payload.unlockTime);
     if (vault.address !== payload.vaultAddress || vault.redeemScript !== payload.redeemScript) continue;
 
-    const response = await fetchWithRetry(
-      kaspaApiUrl(`/addresses/${vault.address}/utxos`),
-      { cache: "no-store" },
-    );
-    if (!response.ok) continue;
-    const selected = pickSpendableUtxo(await response.json());
+    const utxos = await fetchAddressUtxos(vault.address);
+    if (!Array.isArray(utxos)) continue;
+    const selected = pickSpendableUtxo(utxos);
     if (!selected) continue;
 
     const amount = asBigInt(selected.utxoEntry.amount);
