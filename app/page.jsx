@@ -2239,7 +2239,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
           <div>
             <h2>Time-Locked Vault</h2>
             <p>Lock KAS until a chosen blockDAG time, then release it back to your connected wallet.</p>
-            <button type="button" onClick={() => setSelectedVault("timeLock")}>
+            <button type="button" onClick={() => startAnotherVault("timeLock")}>
               Start time lock
             </button>
           </div>
@@ -2250,7 +2250,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
           <div>
             <h2>Dead Man's Switch</h2>
             <p>Lock KAS for a beneficiary. After the timer expires, the beneficiary can discover and claim it.</p>
-            <button type="button" onClick={() => setSelectedVault("dms")}>
+            <button type="button" onClick={() => startAnotherVault("dms")}>
               Start dead man's switch
             </button>
           </div>
