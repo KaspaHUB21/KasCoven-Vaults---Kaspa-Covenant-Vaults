@@ -2675,7 +2675,6 @@ export function KasCovenVaults({ recoveryMode = false }) {
               <span>Initial estimated unlock: {dmsInputDaa ? new Date(Date.now() + Math.ceil(dmsInputDaa / 10) * 1000).toLocaleString() : "Choose a future DAA score"}</span>
               <small>After a heartbeat, the unlock DAA becomes heartbeat DAA + this inactivity window.</small>
             </div>
-            <p className="vaultFeeWarning wide">No fixed fee cap: the beneficiary wallet signs and authorizes the current network fee when claiming. Older vaults retain their original legacy fee limit.</p>
           </div>
 
           <div className="stepGrid">
