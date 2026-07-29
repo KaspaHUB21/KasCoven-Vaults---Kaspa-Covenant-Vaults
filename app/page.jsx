@@ -511,6 +511,20 @@ export function KasCovenVaults({ recoveryMode = false }) {
 
   useEffect(() => {
     let cancelled = false;
+    setPreparingKaspire(true);
+    prepareKaspireConnection()
+      .then((prepared) => {
+        if (!cancelled && prepared) setPreparedKaspire(prepared);
+      })
+      .catch(() => null)
+      .finally(() => {
+        if (!cancelled) setPreparingKaspire(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
     async function refreshDaa() {
       try {
         const response = await fetch("/api/timelock-vault?action=current-daa", { cache: "no-store" });
@@ -767,8 +781,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
       });
       setActiveProvider(kaspire);
       const accounts = await kaspire.requestAccounts();
-      const publicKey = await kaspire.getPublicKey();
-      const nextReport = { connected: true, accounts, publicKey, walletName: "Kaspire", summary: providerSummary(kaspire) };
+      const nextReport = { connected: true, accounts, publicKey: null, walletName: "Kaspire", summary: providerSummary(kaspire) };
       setReport(nextReport);
       window.localStorage.setItem(LAST_WALLET_STORAGE_KEY, "kaspire");
       setPairing(null);
@@ -776,9 +789,14 @@ export function KasCovenVaults({ recoveryMode = false }) {
       const address = getAccountAddress(nextReport);
       restoreActiveTimeLockVault(address);
       restoreActiveDmsVault(address);
-      await restoreActiveTimeLockVaultFromChain(address);
-      const ownerDmsFound = await scanDmsVaultsForOwner(address);
-      if (!ownerDmsFound) await scanDmsVaultsForBeneficiary(address, { silent: true });
+      void kaspire.getPublicKey().then((publicKey) => {
+        setReport((current) => current.walletName === "Kaspire" ? { ...current, publicKey } : current);
+      }).catch(() => null);
+      void (async () => {
+        await restoreActiveTimeLockVaultFromChain(address);
+        const ownerDmsFound = await scanDmsVaultsForOwner(address);
+        if (!ownerDmsFound) await scanDmsVaultsForBeneficiary(address, { silent: true });
+      })();
     } catch (error) {
       setPairing(null);
       setStatus(error?.message || "Kaspire connection failed.");

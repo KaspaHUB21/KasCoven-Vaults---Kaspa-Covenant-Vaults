@@ -133,12 +133,12 @@ export default function WizardPage() {
       : await nextWallet.requestAccounts();
     const nextAddress = typeof accounts?.[0] === "string" ? accounts[0] : accounts?.[0]?.address;
     if (!nextAddress?.startsWith("kaspa:")) throw new Error(`${name} returned no Kaspa Mainnet address.`);
-    const nextPublicKey = await nextWallet.getPublicKey().catch(() => "");
     setWallet(nextWallet);
     setWalletName(name);
     setAddress(nextAddress);
-    setPublicKey(nextPublicKey);
+    setPublicKey("");
     setWalletMenuOpen(false);
+    void nextWallet.getPublicKey().then(setPublicKey).catch(() => null);
   }
 
   async function prepareKaspire() {
@@ -312,6 +312,20 @@ export default function WizardPage() {
       window.clearInterval(daaRefresh);
       window.removeEventListener("vaults:kaspireAction", handleAction);
     };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPreparingKaspire(true);
+    prepareKaspireConnection()
+      .then((prepared) => {
+        if (!cancelled && prepared) setPreparedKaspire(prepared);
+      })
+      .catch(() => null)
+      .finally(() => {
+        if (!cancelled) setPreparingKaspire(false);
+      });
+    return () => { cancelled = true; };
   }, []);
 
   async function prepareVault() {
