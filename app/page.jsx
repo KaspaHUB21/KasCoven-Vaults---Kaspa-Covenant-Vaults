@@ -2263,7 +2263,28 @@ export function KasCovenVaults({ recoveryMode = false }) {
             <article className="activeVaultSafe">
               <img src="/timelockedvault.png" alt="Closed time-locked vault" />
               <div className="activeVaultSafeBody">
-                <p className="vaultEyebrow">CLOSED VAULT</p>
+                <div className="activeVaultSafeTop">
+                  <p className="vaultEyebrow">CLOSED VAULT</p>
+                  <details className="activeVaultSwitcher">
+                    <summary aria-label="Switch vault" title="Switch vault"><span /><span /><span /></summary>
+                    <div>
+                      {ownedVaults.map((vault) => (
+                        <button
+                          type="button"
+                          key={`switch-time-${vault.id}`}
+                          onClick={(event) => {
+                            event.currentTarget.closest("details")?.removeAttribute("open");
+                            if (vault.kind === "timeLock") selectTimeLockVault(vault.raw);
+                            else selectDmsVault(vault.raw);
+                          }}
+                        >
+                          <strong>{vault.name}</strong>
+                          <small>{vault.type} · {vault.amount}</small>
+                        </button>
+                      ))}
+                    </div>
+                  </details>
+                </div>
                 <h2>{timeLockCreateResult?.draft?.vaultName || timeLockCreateResult?.draft?.payload?.vaultName || "Time-Locked Vault"}</h2>
                 <strong className="activeVaultCountdown">
                   {timeLockRemainingDaa > 0 ? `≈ ${formatDaaDuration(timeLockRemainingDaa)} remaining` : "Ready to open"}
@@ -2437,7 +2458,28 @@ export function KasCovenVaults({ recoveryMode = false }) {
             <article className="activeVaultSafe">
               <img src="/deadmansswitch.png" alt="Closed dead-man-switch vault" />
               <div className="activeVaultSafeBody">
-                <p className="vaultEyebrow">CLOSED VAULT</p>
+                <div className="activeVaultSafeTop">
+                  <p className="vaultEyebrow">CLOSED VAULT</p>
+                  <details className="activeVaultSwitcher">
+                    <summary aria-label="Switch vault" title="Switch vault"><span /><span /><span /></summary>
+                    <div>
+                      {ownedVaults.map((vault) => (
+                        <button
+                          type="button"
+                          key={`switch-dms-${vault.id}`}
+                          onClick={(event) => {
+                            event.currentTarget.closest("details")?.removeAttribute("open");
+                            if (vault.kind === "timeLock") selectTimeLockVault(vault.raw);
+                            else selectDmsVault(vault.raw);
+                          }}
+                        >
+                          <strong>{vault.name}</strong>
+                          <small>{vault.type} · {vault.amount}</small>
+                        </button>
+                      ))}
+                    </div>
+                  </details>
+                </div>
                 <h2>{dmsCreateResult?.draft?.vaultName || dmsCreateResult?.draft?.payload?.vaultName || "Dead Man's Switch"}</h2>
                 <strong className="activeVaultCountdown">
                   {dmsRemainingDaa > 0 ? `≈ ${formatDaaDuration(dmsRemainingDaa)} remaining` : "Ready to open"}
@@ -2630,53 +2672,6 @@ export function KasCovenVaults({ recoveryMode = false }) {
           </StatusNotice>
         </section>
       )}
-
-      <section className="myVaultsPanel claimVaultsPanel">
-        <div>
-          <p className="vaultEyebrow">CLAIM &amp; MANAGE</p>
-          <h2>All active vaults</h2>
-          <p>Choose any Time-Lock or Dead Man's Switch without switching the creation form first.</p>
-        </div>
-        <div className="myVaultActions">
-          <button type="button" onClick={() => refreshMyVaults(accountAddress)} disabled={!accountAddress || myVaultsLoading}>
-            {myVaultsLoading ? "Scanning…" : "Refresh all vaults"}
-          </button>
-        </div>
-        {myVaultsLoading ? <p className="emptyVaults">Scanning all owner and beneficiary vaults…</p> : null}
-        {!myVaultsLoading && ownedVaults.length ? (
-          <div className="ownedVaultGrid">
-            {ownedVaults.map((vault) => (
-              <div className="ownedVault" key={`manage-${vault.id}`}>
-                <strong>{vault.name}</strong>
-                <small>{vault.type}</small>
-                <span>{vault.amount}</span>
-                <code>{vault.address}</code>
-                {vault.beneficiary ? <small>Beneficiary: {shortAddress(vault.beneficiary)}</small> : null}
-                <small>{vault.ready ? "Ready to release" : "Still locked"}</small>
-                <small>Current DAA: {currentDaaScore.toLocaleString()}</small>
-                <small>Unlock DAA: {vault.unlockDaa ? vault.unlockDaa.toLocaleString() : "Pending"}</small>
-                <small>Estimated time: ≈ {formatDaaDuration(vault.remainingDaa)}</small>
-                <button type="button" onClick={() => (vault.kind === "timeLock" ? selectTimeLockVault(vault.raw) : selectDmsVault(vault.raw))}>
-                  {vault.kind === "timeLock" ? "Open unlock controls" : "Open claim controls"}
-                </button>
-                {vault.kind === "dms" &&
-                accountAddress === (vault.raw.ownerAddress || vault.raw.payload?.ownerAddress) &&
-                (vault.raw.ownerPublicKey || vault.raw.payload?.ownerPublicKey) &&
-                (vault.raw.inactivityDaaBlocks || vault.raw.payload?.inactivityDaaBlocks) ? (
-                  <button type="button" onClick={() => sendDmsPulse(vault.raw)}>
-                    Send owner pulse
-                  </button>
-                ) : null}
-                <button type="button" onClick={() => exportRawVaultRecovery(vault.kind, vault.raw)}>
-                  Export recovery
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : !myVaultsLoading ? (
-          <p className="emptyVaults">{accountAddress ? "No active vaults found." : "Connect a wallet to load all active vaults."}</p>
-        ) : null}
-      </section>
 
       <footer className="footer-flow" data-darkreader-ignore>
         <a href="https://kaslab.space/" aria-label="Visit HUB21 at kaslab.space">Developed by HUB21</a>

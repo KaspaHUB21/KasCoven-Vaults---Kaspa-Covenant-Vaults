@@ -1190,8 +1190,55 @@ body {
   background: radial-gradient(circle at 12% 50%, rgba(73, 234, 217, 0.12), transparent 32%), rgba(3, 12, 11, 0.7);
 }
 .activeVaultSafe > img { width: 100%; max-height: 290px; object-fit: contain; }
-.activeVaultSafeBody { display: grid; min-width: 0; gap: 12px; }
+.activeVaultSafeBody { position: relative; display: grid; min-width: 0; gap: 12px; }
 .activeVaultSafeBody h2, .activeVaultSafeBody p { margin: 0; }
+.activeVaultSafeTop { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.activeVaultSwitcher { position: relative; z-index: 4; }
+.activeVaultSwitcher summary {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  padding: 10px;
+  cursor: pointer;
+  list-style: none;
+  border: 1px solid rgba(73, 234, 217, 0.3);
+  border-radius: 11px;
+  background: rgba(2, 12, 11, 0.9);
+}
+.activeVaultSwitcher summary::-webkit-details-marker { display: none; }
+.activeVaultSwitcher summary span {
+  display: block;
+  align-self: center;
+  width: 100%;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--kaspa);
+}
+.activeVaultSwitcher > div {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  width: min(360px, 80vw);
+  max-height: 360px;
+  padding: 8px;
+  overflow-y: auto;
+  border: 1px solid rgba(73, 234, 217, 0.28);
+  border-radius: 13px;
+  background: rgba(3, 13, 12, 0.98);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+.activeVaultSwitcher > div button {
+  display: grid;
+  gap: 3px;
+  padding: 11px 12px;
+  text-align: left;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+}
+.activeVaultSwitcher > div button:hover { background: rgba(73, 234, 217, 0.09); }
+.activeVaultSwitcher > div small { color: var(--muted); }
 .activeVaultCountdown { color: var(--kaspa-soft); font-size: clamp(1.25rem, 3vw, 2rem); }
 .activeVaultSafeActions { display: flex; flex-wrap: wrap; gap: 10px; }
 .activeVaultSafeActions button { border-radius: 999px; }
