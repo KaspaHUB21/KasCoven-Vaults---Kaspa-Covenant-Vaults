@@ -713,6 +713,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
       const kaspire = await connectKaspire({
         onDisplayUri: (nextPairing) => {
           if (/Android/i.test(window.navigator.userAgent)) {
+            if (nextPairing.qrDataUrl) return;
             setStatus("Opening Kaspire for connection approval…");
             window.location.assign(nextPairing.intentLink);
             return;
@@ -2224,8 +2225,8 @@ export function KasCovenVaults({ recoveryMode = false }) {
             <button className="pairingClose" type="button" onClick={() => setPairing(null)} aria-label="Close">×</button>
             <h2>Connect Kaspire</h2>
             <p>Scan this QR code with Kaspire or open the verified app link on this device.</p>
-            <img src={pairing.qrDataUrl} alt="Kaspire WalletConnect QR code" />
-            <a className="connectWalletButton" href={/Android/i.test(window.navigator.userAgent) ? pairing.intentLink : pairing.appLink}>Open Kaspire</a>
+            {pairing.qrDataUrl ? <img src={pairing.qrDataUrl} alt="Kaspire WalletConnect QR code" /> : <p>Preparing QR code…</p>}
+            <a className="connectWalletButton pairingLaunchButton" href={/Android/i.test(window.navigator.userAgent) ? pairing.intentLink : pairing.appLink}>Open Kaspire</a>
           </div>
         </div>
       ) : null}

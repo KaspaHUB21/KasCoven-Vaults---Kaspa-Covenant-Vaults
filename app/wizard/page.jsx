@@ -141,7 +141,14 @@ export default function WizardPage() {
 
   async function connectWithKaspire() {
     try {
-      const nextWallet = await connectKaspire({ onDisplayUri: setPairing });
+      const nextWallet = await connectKaspire({
+        onDisplayUri: (nextPairing) => {
+          setPairing((current) => ({
+            ...nextPairing,
+            launching: Boolean(current?.launching),
+          }));
+        },
+      });
       setPairing(null);
       await applyWallet(nextWallet, "Kaspire");
     } catch (error) {
@@ -455,8 +462,20 @@ export default function WizardPage() {
           <div className="pairingCard">
             <button className="pairingClose" type="button" onClick={() => setPairing(null)}>×</button>
             <h2>Connect Kaspire</h2>
-            <img src={pairing.qrDataUrl} alt="Kaspire WalletConnect QR code" />
-            <a className="connectWalletButton" href={/Android/i.test(window.navigator.userAgent) ? pairing.intentLink : pairing.appLink}>Open Kaspire</a>
+            {pairing.launching ? (
+              <p>Secure connection is being established…</p>
+            ) : pairing.qrDataUrl ? (
+              <img src={pairing.qrDataUrl} alt="Kaspire WalletConnect QR code" />
+            ) : (
+              <p>Preparing QR code…</p>
+            )}
+            <a
+              className="connectWalletButton pairingLaunchButton"
+              href={/Android/i.test(window.navigator.userAgent) ? pairing.intentLink : pairing.appLink}
+              onClick={() => setPairing((current) => current ? { ...current, launching: true } : current)}
+            >
+              {pairing.launching ? "Waiting for Kaspire…" : "Open Kaspire"}
+            </a>
           </div>
         </div>
       ) : null}
