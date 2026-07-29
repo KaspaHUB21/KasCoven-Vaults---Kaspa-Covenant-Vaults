@@ -2,6 +2,8 @@ import path from "path";
 import { createRequire } from "module";
 import { kaspaApiUrl, kaspaHistoryApiUrl } from "../../../lib/kaspa-endpoints.js";
 import { findIndexedVaults, indexVaultCreation } from "../../../lib/vault-index.js";
+import { acquireConcurrency, enforceRateLimit } from "../../../lib/api-security.js";
+import { kasDecimalToSompi, outpointMatches } from "../../../lib/vault-values.js";
 
 const TOCCATA_FEE_RATE = 100n;
 const FEE_SAFETY_BUFFER_SOMPI = 50_000n;
@@ -16,8 +18,34 @@ const VAULT_PAYLOAD_VERSION = 2;
 const RECOVERY_PROTOCOL = "kascoven-vault-recovery-v1";
 const KEYLESS_MAX_FEE_SOMPI = 15_000_000n;
 const DMS_NOTICE_SOMPI = 3_000_000n;
-const MAX_SCAN_PAGES = 10_000;
+const MAX_SCAN_PAGES = 1_000;
 const SCAN_PAGE_SIZE = 50;
+const SCAN_TIMEOUT_MS = 15_000;
+const SCAN_CACHE_MS = 5_000;
+const scanCache = new Map();
+
+function cachedScan(key) {
+  const entry = scanCache.get(key);
+  if (!entry || entry.expiresAt <= Date.now()) {
+    scanCache.delete(key);
+    return null;
+  }
+  return Response.json(entry.body);
+}
+
+function cacheScan(key, body) {
+  if (scanCache.size > 500) scanCache.clear();
+  scanCache.set(key, { body, expiresAt: Date.now() + SCAN_CACHE_MS });
+  return Response.json(body);
+}
+
+function fetchForScan(url, deadline) {
+  const remaining = Math.max(1, deadline - Date.now());
+  return fetch(url, {
+    cache: "no-store",
+    signal: AbortSignal.timeout(Math.min(5_000, remaining)),
+  });
+}
 
 function loadToccataKaspa() {
   const requireFromProject = createRequire(path.join(process.cwd(), "package.json"));
@@ -39,11 +67,7 @@ function asBigInt(value) {
 }
 
 function kasToSompi(value) {
-  const raw = String(value ?? "").trim();
-  if (!raw) return DEFAULT_LOCK_SOMPI;
-  const numeric = Number(raw);
-  if (!Number.isFinite(numeric) || numeric <= 0) return 0n;
-  return BigInt(Math.round(numeric * 100000000));
+  return kasDecimalToSompi(value, DEFAULT_LOCK_SOMPI);
 }
 
 function cleanVaultName(value, fallback) {
@@ -349,14 +373,15 @@ async function fetchAddressUtxos(address, attempts = 3) {
   return lastUtxos;
 }
 
-async function findLatestDeadManSwitchPulse(beneficiaryAddress, vaultAddress) {
+async function findLatestDeadManSwitchPulse(beneficiaryAddress, vaultAddress, deadline = Date.now() + SCAN_TIMEOUT_MS) {
   if (!beneficiaryAddress?.startsWith("kaspa:") || !vaultAddress?.startsWith("kaspa:")) return null;
 
   for (let page = 0; page < MAX_SCAN_PAGES; page += 1) {
+    if (Date.now() >= deadline) break;
     const offset = page * SCAN_PAGE_SIZE;
-    const response = await fetch(
+    const response = await fetchForScan(
       kaspaApiUrl(`/addresses/${beneficiaryAddress}/full-transactions?limit=${SCAN_PAGE_SIZE}&offset=${offset}`),
-      { cache: "no-store" },
+      deadline,
     );
 
     if (!response.ok) return null;
@@ -400,8 +425,7 @@ function pickVaultUtxo(utxos, outpointTxId, outpointIndex) {
   return (
     spendable.find((item) => {
       const outpoint = item?.outpoint || {};
-      const txId = outpoint.transactionId || outpoint.transaction_id || outpoint.txId;
-      return String(txId) === String(outpointTxId) && String(outpoint.index) === String(outpointIndex);
+      return outpointMatches(outpoint, outpointTxId, outpointIndex);
     }) || null
   );
 }
@@ -841,10 +865,15 @@ async function scanActiveVaults(kaspa, searchParams) {
   if (!address?.startsWith("kaspa:")) {
     return Response.json({ error: "A valid Kaspa address is required." }, { status: 400 });
   }
+  const cacheKey = `time-lock:${address}`;
+  const cached = cachedScan(cacheKey);
+  if (cached) return cached;
 
   const candidates = [];
+  const deadline = Date.now() + SCAN_TIMEOUT_MS;
 
   for (let page = -1; page < MAX_SCAN_PAGES; page += 1) {
+    if (Date.now() >= deadline) break;
     let transactions;
     if (page === -1) {
       const indexed = await findIndexedVaults({ ownerAddress: address });
@@ -855,9 +884,9 @@ async function scanActiveVaults(kaspa, searchParams) {
       }));
     } else {
       const offset = page * SCAN_PAGE_SIZE;
-      const response = await fetch(
+      const response = await fetchForScan(
         kaspaHistoryApiUrl(`/addresses/${address}/full-transactions?limit=${SCAN_PAGE_SIZE}&offset=${offset}`),
-        { cache: "no-store" },
+        deadline,
       );
 
       if (!response.ok) {
@@ -946,7 +975,7 @@ async function scanActiveVaults(kaspa, searchParams) {
   const uniqueCandidates = Array.from(candidatesByOutpoint.values())
     .sort((a, b) => Number(b.acceptingBlockTime || 0) - Number(a.acceptingBlockTime || 0));
 
-  return Response.json({
+  return cacheScan(cacheKey, {
     status: uniqueCandidates.length ? "Active vaults found" : "No active time-locked vaults found",
     address,
     count: uniqueCandidates.length,
@@ -963,10 +992,15 @@ async function scanDeadManSwitchVaults(kaspa, searchParams) {
   if (!scanAddress?.startsWith("kaspa:")) {
     return Response.json({ error: "A valid beneficiary or owner Kaspa address is required." }, { status: 400 });
   }
+  const cacheKey = `dms:${scanMode}:${scanAddress}`;
+  const cached = cachedScan(cacheKey);
+  if (cached) return cached;
 
   const candidates = [];
+  const deadline = Date.now() + SCAN_TIMEOUT_MS;
 
   for (let page = -1; page < MAX_SCAN_PAGES; page += 1) {
+    if (Date.now() >= deadline) break;
     let transactions;
     if (page === -1) {
       const indexed = await findIndexedVaults(
@@ -981,9 +1015,9 @@ async function scanDeadManSwitchVaults(kaspa, searchParams) {
       }));
     } else {
       const offset = page * SCAN_PAGE_SIZE;
-      const response = await fetch(
+      const response = await fetchForScan(
         kaspaHistoryApiUrl(`/addresses/${scanAddress}/full-transactions?limit=${SCAN_PAGE_SIZE}&offset=${offset}`),
-        { cache: "no-store" },
+        deadline,
       );
 
       if (!response.ok) {
@@ -1035,7 +1069,7 @@ async function scanDeadManSwitchVaults(kaspa, searchParams) {
 
       const currentBlueScore = await getCurrentBlueScore();
       const inactivityDaaBlocks = Number(payload.inactivityDaaBlocks || payload.lockDaaBlocks || 0);
-      const latestPulse = payload.dmsMode === "heartbeat" ? await findLatestDeadManSwitchPulse(payload.beneficiaryAddress, payload.vaultAddress) : null;
+      const latestPulse = payload.dmsMode === "heartbeat" ? await findLatestDeadManSwitchPulse(payload.beneficiaryAddress, payload.vaultAddress, deadline) : null;
       const lastPulseBlueScore = Number(latestPulse?.payload?.pulsedBlueScore || 0);
       const timerStartBlueScore = Number(payload.createdBlueScore || currentBlueScore);
 
@@ -1104,7 +1138,7 @@ async function scanDeadManSwitchVaults(kaspa, searchParams) {
     (a, b) => Number(b.acceptingBlockTime || 0) - Number(a.acceptingBlockTime || 0),
   );
 
-  return Response.json({
+  return cacheScan(cacheKey, {
     status: uniqueCandidates.length ? "Claimable dead-man-switch vaults found" : "No claimable dead-man-switch vaults found",
     address: scanAddress,
     beneficiaryAddress: beneficiaryAddress || null,
@@ -1271,6 +1305,7 @@ async function createDeadManSwitchHeartbeatDraft(kaspa, searchParams) {
   const beneficiaryAddress = searchParams.get("beneficiaryAddress");
   const vaultAddress = searchParams.get("vaultAddress");
   const inactivityDaaBlocks = searchParams.get("inactivityDaaBlocks");
+  const vaultId = searchParams.get("vaultId");
   const outpointTxId = searchParams.get("outpointTxId");
   const outpointIndex = searchParams.get("outpointIndex");
   const redeemScript = String(searchParams.get("redeemScript") || "").replace(/^0x/i, "");
@@ -1329,6 +1364,7 @@ async function createDeadManSwitchHeartbeatDraft(kaspa, searchParams) {
     beneficiaryAddress,
     vaultAddress,
     inactivityDaaBlocks: String(inactivityDaaBlocks),
+    vaultId: String(vaultId || ""),
     previousVaultOutpoint: vaultSelected.outpoint,
     pulsedBlueScore: currentBlueScore,
     pulsedAtIso: new Date().toISOString(),
@@ -1424,6 +1460,8 @@ async function createUnlockDraft(kaspa, searchParams) {
   const ownerAddress = searchParams.get("ownerAddress") || address;
   const vaultAddress = searchParams.get("vaultAddress");
   const unlockTime = searchParams.get("unlockTime");
+  const outpointTxId = searchParams.get("outpointTxId");
+  const outpointIndex = searchParams.get("outpointIndex");
   const redeemScript = String(searchParams.get("redeemScript") || "").replace(/^0x/i, "");
 
   if (!address?.startsWith("kaspa:")) {
@@ -1434,8 +1472,8 @@ async function createUnlockDraft(kaspa, searchParams) {
     return Response.json({ error: "This vault is pinned to its owner address; unlock destination cannot be changed." }, { status: 400 });
   }
 
-  if (!vaultAddress?.startsWith("kaspa:") || !unlockTime || !redeemScript) {
-    return Response.json({ error: "Vault address, unlock time and redeem script are required." }, { status: 400 });
+  if (!vaultAddress?.startsWith("kaspa:") || !unlockTime || !redeemScript || !outpointTxId || outpointIndex === null) {
+    return Response.json({ error: "Vault address, unlock time, redeem script and exact funding outpoint are required." }, { status: 400 });
   }
 
   const vault = makeTimeLockVault(kaspa, unlockTime, ownerAddress);
@@ -1448,9 +1486,9 @@ async function createUnlockDraft(kaspa, searchParams) {
     throw new Error("Kaspa UTXO API returned an error for the vault address.");
   }
 
-  const selected = pickSpendableUtxo(await utxoResponse.json());
+  const selected = pickVaultUtxo(await utxoResponse.json(), outpointTxId, outpointIndex);
   if (!selected) {
-    return Response.json({ error: "No spendable vault UTXO found yet. Wait for indexing and try again." }, { status: 400 });
+    return Response.json({ error: "The selected time-lock vault outpoint is no longer spendable. Scan again." }, { status: 409 });
   }
 
   const outpoint = selected.outpoint;
@@ -1484,6 +1522,17 @@ async function createUnlockDraft(kaspa, searchParams) {
   });
   const fee = estimateFee(kaspa, provisional);
   const returnAmount = amount - fee;
+
+  if (fee > KEYLESS_MAX_FEE_SOMPI) {
+    return Response.json(
+      {
+        error: "Estimated network fee exceeds this vault's immutable consensus fee cap. Retry when fees are lower.",
+        estimatedFeeSompi: fee.toString(),
+        maxFeeSompi: KEYLESS_MAX_FEE_SOMPI.toString(),
+      },
+      { status: 400 },
+    );
+  }
 
   if (returnAmount <= MIN_RETURN_SOMPI) {
     return Response.json(
@@ -1549,11 +1598,15 @@ async function getCurrentDaaScore() {
 }
 
 async function listWizardVaults(kaspa) {
+  const cached = cachedScan("wizard:list");
+  if (cached) return cached;
   const records = await findIndexedVaults({});
   const currentBlueScore = await getCurrentBlueScore();
   const vaults = [];
+  const deadline = Date.now() + SCAN_TIMEOUT_MS;
 
   for (const record of records) {
+    if (Date.now() >= deadline) break;
     const payload = record.payload;
     if (payload?.action !== "wizard-create" || !payload.unlockTime) continue;
 
@@ -1586,7 +1639,7 @@ async function listWizardVaults(kaspa) {
   }
 
   vaults.sort((a, b) => Number(a.unlockTime) - Number(b.unlockTime));
-  return Response.json({ count: vaults.length, currentBlueScore, vaults });
+  return cacheScan("wizard:list", { count: vaults.length, currentBlueScore, vaults });
 }
 
 async function createWizardClaimDraft(kaspa, searchParams) {
@@ -1694,6 +1747,11 @@ async function createWizardClaimDraft(kaspa, searchParams) {
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const action = searchParams.get("action") || "create";
+  const isScan = action === "scan" || action === "dms-scan" || action === "wizard-list";
+  const rateError = enforceRateLimit(request, isScan ? "vault-scan" : "vault-draft", isScan ? 30 : 60);
+  if (rateError) return rateError;
+  const release = acquireConcurrency(isScan ? "vault-scan" : "vault-draft", isScan ? 6 : 12);
+  if (!release) return Response.json({ error: "The vault API is busy. Retry shortly." }, { status: 503 });
 
   try {
     const kaspa = loadToccataKaspa();
@@ -1714,5 +1772,7 @@ export async function GET(request) {
       { error: error?.message || "Time-locked vault transaction could not be created." },
       { status: 500 },
     );
+  } finally {
+    release();
   }
 }

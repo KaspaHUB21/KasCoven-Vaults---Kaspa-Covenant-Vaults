@@ -1626,6 +1626,8 @@ export function KasCovenVaults({ recoveryMode = false }) {
           ownerAddress: timeLockCreateResult.draft?.address || timeLockCreateResult.draft?.payload?.ownerAddress || address,
           vaultAddress: timeLockCreateResult.draft?.vault?.address,
           unlockTime: timeLockCreateResult.draft?.vault?.unlockTime,
+          outpointTxId: timeLockCreateResult.draft?.selectedOutpoint?.transactionId || timeLockCreateResult.draft?.selectedOutpoint?.transaction_id || timeLockCreateResult.draft?.selectedOutpoint?.txId || "",
+          outpointIndex: timeLockCreateResult.draft?.selectedOutpoint?.index ?? "",
           redeemScript: timeLockCreateResult.draft?.vault?.redeemScript,
         }).toString()}`),
         { cache: "no-store" },
@@ -1877,6 +1879,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
           beneficiaryAddress,
           vaultAddress: draft.vault?.address,
           inactivityDaaBlocks,
+          vaultId: draft.deployTxId || draft.payload?.vaultId || "",
           outpointTxId: draft.selectedOutpoint?.transactionId || draft.selectedOutpoint?.transaction_id || draft.selectedOutpoint?.txId || "",
           outpointIndex: draft.selectedOutpoint?.index ?? "",
           redeemScript: draft.vault?.redeemScript,
@@ -2353,6 +2356,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
               <span>Estimated unlock: {timeLockInputDaa ? new Date(Date.now() + Math.ceil(timeLockInputDaa / 10) * 1000).toLocaleString() : "Choose a future DAA score"}</span>
               <small>Time is estimated at approximately 10 DAA per second. The DAA score is authoritative.</small>
             </div>
+            <p className="vaultFeeWarning wide">Safety limit: this covenant permanently caps the opening network fee at 0.15 KAS. If required fees exceed that cap, opening must wait until fees fall.</p>
           </div>
 
           <div className="stepGrid">
@@ -2555,6 +2559,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
               <span>Initial estimated unlock: {dmsInputDaa ? new Date(Date.now() + Math.ceil(dmsInputDaa / 10) * 1000).toLocaleString() : "Choose a future DAA score"}</span>
               <small>After a heartbeat, the unlock DAA becomes heartbeat DAA + this inactivity window.</small>
             </div>
+            <p className="vaultFeeWarning wide">Safety limit: this covenant permanently caps the beneficiary claim fee at 0.15 KAS. If required fees exceed that cap, claiming must wait until fees fall.</p>
           </div>
 
           <div className="stepGrid">

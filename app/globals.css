@@ -1279,6 +1279,16 @@ body {
 }
 .vaultDaaEstimate strong { color: var(--kaspa-soft); font-size: 0.92rem; }
 .vaultDaaEstimate small { line-height: 1.45; }
+.vaultFeeWarning {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 11px 13px;
+  border-left: 3px solid var(--orange);
+  color: #ffd1a8;
+  background: rgba(255, 138, 32, 0.07);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
 .durationSelector {
   min-width: 0;
   margin: 0;

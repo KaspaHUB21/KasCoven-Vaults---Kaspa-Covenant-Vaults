@@ -1,11 +1,13 @@
 {
   "name": "kascoven-vaults",
   "version": "0.1.0",
+  "type": "module",
   "private": true,
   "scripts": {
     "postinstall": "node scripts/install-toccata-sdk.mjs",
     "install:toccata": "node scripts/install-toccata-sdk.mjs",
     "recovery": "node scripts/kascoven-recovery.mjs",
+    "test": "node --test scripts/*.test.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start"
@@ -13,7 +15,7 @@
   "dependencies": {
     "@walletconnect/sign-client": "^2.23.10",
     "@walletconnect/universal-provider": "^2.23.10",
-    "next": "16.2.9",
+    "next": "16.2.12",
     "qrcode": "^1.5.4",
     "react": "19.2.7",
     "react-dom": "19.2.7"

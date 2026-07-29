@@ -5,7 +5,7 @@ const VAULT_PAYLOAD_VERSION = 2;
 const RECOVERY_PROTOCOL = "kascoven-vault-recovery-v1";
 const KASPA_API = process.env.KASPA_API || "https://api.kaspa.org";
 const DEFAULT_VAULT_API = process.env.KASCOVEN_API || "http://127.0.0.1:3000/api/timelock-vault";
-const MAX_SCAN_PAGES = Number(process.env.KASCOVEN_SCAN_PAGES || 10000);
+const MAX_SCAN_PAGES = Number(process.env.KASCOVEN_SCAN_PAGES || 1000);
 const SCAN_PAGE_SIZE = 50;
 
 function usage() {
@@ -77,12 +77,11 @@ function outpointId(outpoint) {
 }
 
 async function getUtxos(address) {
-  try {
-    const utxos = await fetchJson(`${KASPA_API}/addresses/${address}/utxos`);
-    return Array.isArray(utxos) ? utxos : [];
-  } catch {
-    return [];
+  const utxos = await fetchJson(`${KASPA_API}/addresses/${address}/utxos`);
+  if (!Array.isArray(utxos)) {
+    throw new Error(`Kaspa UTXO API returned an invalid response for ${address}. Recovery scan aborted.`);
   }
+  return utxos;
 }
 
 function spendableUtxos(utxos) {
@@ -127,7 +126,7 @@ function makeRecovery(type, payload, transaction, activeUtxo = null) {
 async function scanAddress(address, mode = "all") {
   if (!address?.startsWith("kaspa:")) throw new Error("Provide a full kaspa: address.");
 
-  const found = [];
+  const discovered = [];
 
   for (let page = 0; page < MAX_SCAN_PAGES; page += 1) {
     const offset = page * SCAN_PAGE_SIZE;
@@ -152,10 +151,55 @@ async function scanAddress(address, mode = "all") {
       if (mode === "beneficiary" && !isDmsBeneficiary) continue;
       if (mode === "all" && !(isTimeLock || isDmsOwner || isDmsBeneficiary)) continue;
 
-      const activeUtxos = payload.vaultAddress ? spendableUtxos(await getUtxos(payload.vaultAddress)) : [];
-      for (const utxo of activeUtxos.length ? activeUtxos : [null]) {
-        found.push(makeRecovery(isTimeLock ? "time_lock" : "dead_man_switch", payload, transaction, utxo));
+      discovered.push({
+        type: isTimeLock ? "time_lock" : "dead_man_switch",
+        payload,
+        transaction,
+      });
+    }
+  }
+
+  const found = [];
+  const ordered = discovered.sort((a, b) => txTime(b.transaction) - txTime(a.transaction));
+  for (const item of ordered.filter((candidate) => candidate.type === "time_lock")) {
+    const activeUtxos = spendableUtxos(await getUtxos(item.payload.vaultAddress));
+    const deployTxId = String(item.transaction?.transaction_id || "");
+    const matchingUtxos = activeUtxos.filter((utxo) => {
+      const outpoint = utxo?.outpoint || {};
+      return String(outpoint.transactionId || outpoint.transaction_id || outpoint.txId || "") === deployTxId;
+    });
+    for (const utxo of matchingUtxos) {
+      found.push(makeRecovery(item.type, item.payload, item.transaction, utxo));
+    }
+  }
+
+  const dmsByAddress = new Map();
+  for (const item of ordered.filter((candidate) => candidate.type === "dead_man_switch")) {
+    const entries = dmsByAddress.get(item.payload.vaultAddress) || [];
+    entries.push(item);
+    dmsByAddress.set(item.payload.vaultAddress, entries);
+  }
+  for (const [vaultAddress, creations] of dmsByAddress) {
+    const activeUtxos = spendableUtxos(await getUtxos(vaultAddress));
+    for (const utxo of activeUtxos) {
+      const outpoint = utxo?.outpoint || {};
+      const outpointTxId = String(outpoint.transactionId || outpoint.transaction_id || outpoint.txId || "");
+      let creation = creations.find((item) => String(item.transaction?.transaction_id || "") === outpointTxId);
+
+      if (!creation && outpointTxId) {
+        const pulseTransaction = await fetchJson(`${KASPA_API}/transactions/${outpointTxId}`);
+        const pulsePayload = parsePayload(pulseTransaction?.payload);
+        if (pulsePayload?.action === "dms-heartbeat" && pulsePayload?.vaultId) {
+          creation = creations.find(
+            (item) => String(item.transaction?.transaction_id || "") === String(pulsePayload.vaultId),
+          );
+        }
       }
+
+      // Legacy heartbeat payloads did not carry a vaultId. Their covenant is still
+      // recoverable, but identical legacy creations can only use the newest metadata.
+      creation ||= creations[0];
+      if (creation) found.push(makeRecovery("dead_man_switch", creation.payload, creation.transaction, utxo));
     }
   }
 

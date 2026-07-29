@@ -2,6 +2,7 @@ import path from "path";
 import { createRequire } from "module";
 import { KASPA_WRPC } from "../../../lib/kaspa-endpoints.js";
 import { indexVaultCreation, parseVaultPayload } from "../../../lib/vault-index.js";
+import { acquireConcurrency, enforceRateLimit, enforceSameOrigin, readJsonBody } from "../../../lib/api-security.js";
 
 function loadToccataKaspa() {
   const requireFromProject = createRequire(path.join(process.cwd(), "package.json"));
@@ -22,6 +23,46 @@ function timeoutAfter(ms, message) {
   return new Promise((_, reject) => {
     setTimeout(() => reject(new Error(message)), ms);
   });
+}
+
+function scriptPublicKeyJson(scriptPublicKey) {
+  const value = typeof scriptPublicKey?.toJSON === "function"
+    ? scriptPublicKey.toJSON()
+    : scriptPublicKey;
+  return {
+    version: Number(value?.version ?? 0),
+    script: String(value?.script ?? value?.scriptPublicKey ?? "").toLowerCase(),
+  };
+}
+
+function verifyVaultCreation(kaspa, transaction, payload) {
+  if (!payload || !["create", "dms-create", "wizard-create"].includes(payload.action)) {
+    return false;
+  }
+
+  let expectedScript;
+  let expectedAmount;
+  try {
+    expectedScript = scriptPublicKeyJson(kaspa.payToAddressScript(payload.vaultAddress));
+    expectedAmount = BigInt(String(payload.lockAmountSompi));
+  } catch {
+    return false;
+  }
+  if (expectedAmount <= 0n) return false;
+
+  const hasCommittedVaultOutput = Array.from(transaction.outputs || []).some((output) => {
+    const script = scriptPublicKeyJson(output?.scriptPublicKey);
+    return (
+      BigInt(String(output?.value ?? output?.amount ?? 0)) === expectedAmount &&
+      script.version === expectedScript.version &&
+      script.script === expectedScript.script
+    );
+  });
+  const spendsFromOwner = Array.from(transaction.inputs || []).some(
+    (input) => String(input?.utxo?.address || "") === payload.ownerAddress,
+  );
+
+  return hasCommittedVaultOutput && spendsFromOwner;
 }
 
 async function connectRpc(kaspa) {
@@ -65,9 +106,15 @@ async function connectRpc(kaspa) {
 export async function POST(request) {
   let debug = null;
   let rpc = null;
+  const originError = enforceSameOrigin(request);
+  if (originError) return originError;
+  const rateError = enforceRateLimit(request, "broadcast", 12);
+  if (rateError) return rateError;
+  const release = acquireConcurrency("broadcast", 4);
+  if (!release) return Response.json({ error: "The transaction relay is busy. Retry shortly." }, { status: 503 });
 
   try {
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const signedTxJson = body?.signedTxJson;
     const redeemScript = typeof body?.redeemScript === "string" ? body.redeemScript.replace(/^0x/i, "") : "";
     const branch = typeof body?.branch === "string" ? body.branch : "";
@@ -123,14 +170,18 @@ export async function POST(request) {
       let vaultIndexError = null;
 
       if (vaultPayload) {
-        try {
-          vaultIndexed = await indexVaultCreation({
-            deployTxId: transactionId,
-            payload: vaultPayload,
-            source: "broadcast",
-          });
-        } catch (error) {
-          vaultIndexError = error?.message || String(error);
+        if (!verifyVaultCreation(kaspa, transaction, vaultPayload)) {
+          vaultIndexError = "Vault metadata did not match a committed transaction output and was not indexed.";
+        } else {
+          try {
+            vaultIndexed = await indexVaultCreation({
+              deployTxId: transactionId,
+              payload: vaultPayload,
+              source: "verified-broadcast",
+            });
+          } catch (error) {
+            vaultIndexError = error?.message || String(error);
+          }
         }
       }
 
@@ -153,7 +204,9 @@ export async function POST(request) {
 
     return Response.json(
       { error: message, debug },
-      { status: timedOut ? 504 : 500 },
+      { status: error?.status || (timedOut ? 504 : 500) },
     );
+  } finally {
+    release();
   }
 }
