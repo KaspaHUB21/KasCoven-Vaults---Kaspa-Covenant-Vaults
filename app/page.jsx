@@ -2115,6 +2115,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
         body: JSON.stringify({
           signedTxJson: releaseResult.signed,
           redeemScript: releaseResult.draft?.requiresClaimSignature ? releaseResult.draft?.redeemScript : "",
+          branch: releaseResult.draft?.requiresClaimSignature ? "beneficiary-claim" : "",
         }),
       });
       const data = await readApiResponse(response, "Could not broadcast dead-man-switch release.");

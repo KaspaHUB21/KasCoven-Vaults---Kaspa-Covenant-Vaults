@@ -93,7 +93,9 @@ export async function POST(request) {
       const branchPush =
         branch === "owner-refresh"
           ? new kaspa.ScriptBuilder().addI64(1n).drain()
-          : "";
+          : branch === "beneficiary-claim"
+            ? new kaspa.ScriptBuilder().addI64(0n).drain()
+            : "";
 
       if (!signatureScript.endsWith(redeemPush)) {
         transaction.inputs[0].signatureScript = `${signatureScript}${branchPush}${redeemPush}`;
