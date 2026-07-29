@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { connectKaspire, prepareKaspireConnection, restoreKaspire } from "../../lib/kaspire-wallet";
 
+const MANUAL_DISCONNECT_STORAGE_KEY = "kascoven:manual-disconnect";
+
 function shortAddress(address) {
   return address ? `${address.slice(0, 12)}…${address.slice(-8)}` : "Not connected";
 }
@@ -199,6 +201,7 @@ export default function WizardPage() {
       });
       setPairing(null);
       await applyWallet(nextWallet, "Kaspire");
+      window.localStorage.removeItem(MANUAL_DISCONNECT_STORAGE_KEY);
     } catch (error) {
       setCreateState((current) => ({
         ...(current?.prepared ? current : {}),
@@ -214,6 +217,7 @@ export default function WizardPage() {
       const accounts = await window.kasware.requestAccounts();
       if (!accounts?.length) throw new Error("Kasware returned no account.");
       await applyWallet(window.kasware, "Kasware");
+      window.localStorage.removeItem(MANUAL_DISCONNECT_STORAGE_KEY);
     } catch (error) {
       setCreateState((current) => ({
         ...(current?.prepared ? current : {}),
@@ -235,6 +239,7 @@ export default function WizardPage() {
         error: error?.message || String(error),
       }));
     } finally {
+      window.localStorage.setItem(MANUAL_DISCONNECT_STORAGE_KEY, "1");
       setWallet(null);
       setWalletName("");
       setAddress("");
@@ -296,6 +301,7 @@ export default function WizardPage() {
 
     (async () => {
       try {
+        if (window.localStorage.getItem(MANUAL_DISCONNECT_STORAGE_KEY) === "1") return;
         const restored = await restoreKaspire();
         if (restored) return await applyWallet(restored, "Kaspire");
         if (window.kasware?.getAccounts) {
@@ -315,6 +321,7 @@ export default function WizardPage() {
   }, []);
 
   useEffect(() => {
+    if (window.localStorage.getItem(MANUAL_DISCONNECT_STORAGE_KEY) === "1") return;
     let cancelled = false;
     setPreparingKaspire(true);
     prepareKaspireConnection()

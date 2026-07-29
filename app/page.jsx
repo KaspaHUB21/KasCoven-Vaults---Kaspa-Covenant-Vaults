@@ -9,6 +9,7 @@ const ACTIVE_DMS_STORAGE_PREFIX = "kaslab-active-dms-vault:";
 const RECOVERY_PROTOCOL = "kascoven-vault-recovery-v1";
 const VAULT_PROTOCOL = "kaslab-time-lock-vault-v1";
 const LAST_WALLET_STORAGE_KEY = "kascoven:last-wallet";
+const MANUAL_DISCONNECT_STORAGE_KEY = "kascoven:manual-disconnect";
 
 function providerSummary(provider) {
   if (!provider) return null;
@@ -588,6 +589,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
     }
 
     async function restoreWalletSession() {
+      if (window.localStorage.getItem(MANUAL_DISCONNECT_STORAGE_KEY) === "1") return;
       const preferred = window.localStorage.getItem(LAST_WALLET_STORAGE_KEY);
       try {
         if (preferred === "kasware") {
@@ -702,6 +704,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
         const publicKey = typeof kasware.getPublicKey === "function" ? await kasware.getPublicKey().catch(() => null) : null;
         const nextReport = { connected: true, accounts, publicKey, walletName: "Kasware", summary: providerSummary(kasware) };
         setReport(nextReport);
+        window.localStorage.removeItem(MANUAL_DISCONNECT_STORAGE_KEY);
         window.localStorage.setItem(LAST_WALLET_STORAGE_KEY, "kasware");
         const address = getAccountAddress(nextReport);
         restoreActiveTimeLockVault(address);
@@ -783,6 +786,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
       const accounts = await kaspire.requestAccounts();
       const nextReport = { connected: true, accounts, publicKey: null, walletName: "Kaspire", summary: providerSummary(kaspire) };
       setReport(nextReport);
+      window.localStorage.removeItem(MANUAL_DISCONNECT_STORAGE_KEY);
       window.localStorage.setItem(LAST_WALLET_STORAGE_KEY, "kaspire");
       setPairing(null);
       setStatus("");
@@ -826,6 +830,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
   async function disconnect() {
     setStatus("");
     await provider?.disconnect?.().catch(() => null);
+    window.localStorage.setItem(MANUAL_DISCONNECT_STORAGE_KEY, "1");
     window.localStorage.removeItem(LAST_WALLET_STORAGE_KEY);
     setActiveProvider(null);
     setReport({ connected: false, accounts: [], summary: providerSummary(provider) });
