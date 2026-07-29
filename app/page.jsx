@@ -57,6 +57,54 @@ function adjustDaaWithWheel(event, setValue, minimum) {
   setValue(String(Math.max(minimum, current + delta)));
 }
 
+function DurationSelector({ currentDaaScore, unlockDaaScore, onChange }) {
+  let totalSeconds = Math.max(0, Math.ceil((Number(unlockDaaScore || 0) - Number(currentDaaScore || 0)) / 10));
+  const values = {
+    days: Math.floor(totalSeconds / 86400),
+    hours: Math.floor((totalSeconds % 86400) / 3600),
+    minutes: Math.floor((totalSeconds % 3600) / 60),
+    seconds: totalSeconds % 60,
+  };
+
+  function update(unit, rawValue) {
+    const limits = { days: Infinity, hours: 23, minutes: 59, seconds: 59 };
+    const next = {
+      ...values,
+      [unit]: Math.min(limits[unit], Math.max(0, Math.floor(Number(rawValue) || 0))),
+    };
+    totalSeconds = Math.max(1, next.days * 86400 + next.hours * 3600 + next.minutes * 60 + next.seconds);
+    onChange(String(Number(currentDaaScore || 0) + totalSeconds * 10));
+  }
+
+  return (
+    <fieldset className="durationSelector wide" disabled={!currentDaaScore}>
+      <legend>Or choose a duration</legend>
+      <div className="durationFields">
+        {[
+          ["days", "Days"],
+          ["hours", "Hours"],
+          ["minutes", "Minutes"],
+          ["seconds", "Seconds"],
+        ].map(([unit, label]) => (
+          <label key={unit}>
+            {label}
+            <input
+              type="number"
+              min="0"
+              max={unit === "days" ? undefined : unit === "hours" ? "23" : "59"}
+              step="1"
+              value={values[unit]}
+              onChange={(event) => update(unit, event.target.value)}
+              inputMode="numeric"
+            />
+          </label>
+        ))}
+      </div>
+      <small>Changing the duration automatically updates the unlock DAA score.</small>
+    </fieldset>
+  );
+}
+
 function apiPath(path) {
   return path;
 }
@@ -2079,6 +2127,11 @@ export function KasCovenVaults({ recoveryMode = false }) {
                 inputMode="numeric"
               />
             </label>
+            <DurationSelector
+              currentDaaScore={currentDaaScore}
+              unlockDaaScore={timeLockUnlockDaaScore}
+              onChange={(value) => { setTimeLockDaaTouched(true); setTimeLockUnlockDaaScore(value); }}
+            />
             <div className="vaultDaaEstimate wide">
               <strong>{timeLockInputDaa.toLocaleString()} DAA until unlock</strong>
               <span>Estimated time (days:hours:minutes:seconds): ≈ {formatDaaDuration(timeLockInputDaa)}</span>
@@ -2218,6 +2271,11 @@ export function KasCovenVaults({ recoveryMode = false }) {
               Beneficiary address
               <input value={dmsBeneficiaryAddress} onChange={(event) => setDmsBeneficiaryAddress(event.target.value.trim())} placeholder="kaspa:..." spellCheck={false} />
             </label>
+            <DurationSelector
+              currentDaaScore={currentDaaScore}
+              unlockDaaScore={dmsUnlockDaaScore}
+              onChange={(value) => { setDmsDaaTouched(true); setDmsUnlockDaaScore(value); }}
+            />
             <div className="vaultDaaEstimate wide">
               <strong>{dmsInputDaa.toLocaleString()} DAA inactivity window</strong>
               <span>Estimated time (days:hours:minutes:seconds): ≈ {formatDaaDuration(dmsInputDaa)}</span>

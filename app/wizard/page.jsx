@@ -25,6 +25,54 @@ function adjustDaaWithWheel(event, setValue, minimum) {
   setValue(String(Math.max(minimum, current + delta)));
 }
 
+function DurationSelector({ currentDaaScore, unlockDaaScore, onChange }) {
+  let totalSeconds = Math.max(0, Math.ceil((Number(unlockDaaScore || 0) - Number(currentDaaScore || 0)) / 10));
+  const values = {
+    days: Math.floor(totalSeconds / 86400),
+    hours: Math.floor((totalSeconds % 86400) / 3600),
+    minutes: Math.floor((totalSeconds % 3600) / 60),
+    seconds: totalSeconds % 60,
+  };
+
+  function update(unit, rawValue) {
+    const limits = { days: Infinity, hours: 23, minutes: 59, seconds: 59 };
+    const next = {
+      ...values,
+      [unit]: Math.min(limits[unit], Math.max(0, Math.floor(Number(rawValue) || 0))),
+    };
+    totalSeconds = Math.max(1, next.days * 86400 + next.hours * 3600 + next.minutes * 60 + next.seconds);
+    onChange(String(Number(currentDaaScore || 0) + totalSeconds * 10));
+  }
+
+  return (
+    <fieldset className="durationSelector wizardDurationSelector" disabled={!currentDaaScore}>
+      <legend>Or choose a duration</legend>
+      <div className="durationFields">
+        {[
+          ["days", "Days"],
+          ["hours", "Hours"],
+          ["minutes", "Minutes"],
+          ["seconds", "Seconds"],
+        ].map(([unit, label]) => (
+          <label key={unit}>
+            {label}
+            <input
+              type="number"
+              min="0"
+              max={unit === "days" ? undefined : unit === "hours" ? "23" : "59"}
+              step="1"
+              value={values[unit]}
+              onChange={(event) => update(unit, event.target.value)}
+              inputMode="numeric"
+            />
+          </label>
+        ))}
+      </div>
+      <small>Changing the duration automatically updates the unlock DAA score.</small>
+    </fieldset>
+  );
+}
+
 async function readResponse(response) {
   const text = await response.text();
   if (!text.trim()) {
@@ -336,6 +384,11 @@ export default function WizardPage() {
           <label>Prize in KAS<input type="number" min="1" step="0.01" value={amountKas} onChange={(event) => { setAmountKas(event.target.value); setCreateState(null); }} /></label>
           <label>Current DAA score<input type="text" value={currentDaaScore || "Loading…"} readOnly /></label>
           <label>Unlock DAA score<input type="number" min={currentDaaScore + 1} step="100" value={unlockDaaScore} onChange={(event) => { unlockDaaTouchedRef.current = true; setUnlockDaaScore(event.target.value); setCreateState(null); }} onWheel={(event) => { unlockDaaTouchedRef.current = true; adjustDaaWithWheel(event, setUnlockDaaScore, currentDaaScore + 1); }} /></label>
+          <DurationSelector
+            currentDaaScore={currentDaaScore}
+            unlockDaaScore={unlockDaaScore}
+            onChange={(value) => { unlockDaaTouchedRef.current = true; setUnlockDaaScore(value); setCreateState(null); }}
+          />
           <div className="wizardDaaHint">
             {unlockDaaScore && currentDaaScore ? (
               <>
