@@ -711,14 +711,25 @@ export function KasCovenVaults({ recoveryMode = false }) {
     setPairing(null);
     try {
       const kaspire = await connectKaspire({
-        onDisplayUri: (nextPairing) => {
-          if (/Android/i.test(window.navigator.userAgent)) {
-            if (nextPairing.qrDataUrl) return;
+        onDisplayUri: async ({ appLink, intentLink }) => {
+          const isAndroid = /Android/i.test(window.navigator.userAgent);
+          if (isAndroid) {
             setStatus("Opening Kaspire for connection approval…");
-            window.location.assign(nextPairing.intentLink);
+            window.location.assign(intentLink);
             return;
           }
-          setPairing(nextPairing);
+          setPairing({ appLink, intentLink, qrDataUrl: "" });
+          try {
+            const QRCode = await import("qrcode");
+            const qrDataUrl = await QRCode.toDataURL(appLink, {
+              width: 320,
+              margin: 2,
+              errorCorrectionLevel: "M",
+            });
+            setPairing({ appLink, intentLink, qrDataUrl });
+          } catch {
+            setStatus("The QR code could not be generated. Open the Kaspire link manually.");
+          }
         },
       });
       setActiveProvider(kaspire);

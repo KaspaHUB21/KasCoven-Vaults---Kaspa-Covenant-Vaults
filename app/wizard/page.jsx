@@ -142,11 +142,27 @@ export default function WizardPage() {
   async function connectWithKaspire() {
     try {
       const nextWallet = await connectKaspire({
-        onDisplayUri: (nextPairing) => {
-          setPairing((current) => ({
-            ...nextPairing,
-            launching: Boolean(current?.launching),
-          }));
+        onDisplayUri: async ({ appLink, intentLink }) => {
+          const isAndroid = /Android/i.test(window.navigator.userAgent);
+          if (isAndroid) {
+            window.location.assign(intentLink);
+            return;
+          }
+          setPairing({ appLink, intentLink, qrDataUrl: "" });
+          try {
+            const QRCode = await import("qrcode");
+            const qrDataUrl = await QRCode.toDataURL(appLink, {
+              width: 320,
+              margin: 2,
+              errorCorrectionLevel: "M",
+            });
+            setPairing({ appLink, intentLink, qrDataUrl });
+          } catch {
+            setCreateState((current) => ({
+              ...(current?.prepared ? current : {}),
+              error: "The QR code could not be generated. Open the Kaspire link manually.",
+            }));
+          }
         },
       });
       setPairing(null);
