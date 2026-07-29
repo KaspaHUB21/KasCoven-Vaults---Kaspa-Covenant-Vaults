@@ -1629,6 +1629,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
           outpointTxId: timeLockCreateResult.draft?.selectedOutpoint?.transactionId || timeLockCreateResult.draft?.selectedOutpoint?.transaction_id || timeLockCreateResult.draft?.selectedOutpoint?.txId || "",
           outpointIndex: timeLockCreateResult.draft?.selectedOutpoint?.index ?? "",
           redeemScript: timeLockCreateResult.draft?.vault?.redeemScript,
+          feePolicy: timeLockCreateResult.draft?.payload?.feePolicy || timeLockCreateResult.draft?.vault?.feePolicy || "legacy-cap",
         }).toString()}`),
         { cache: "no-store" },
       );
@@ -1636,7 +1637,27 @@ export function KasCovenVaults({ recoveryMode = false }) {
 
       if (!response.ok) throw new Error(draft.error || "Could not create time-locked vault unlock transaction.");
 
-      const result = { loading: false, ok: true, draft, signed: draft.txJson };
+      let signed = draft.txJson;
+      if (draft.requiresClaimSignature) {
+        if (!provider || typeof provider.signPskt !== "function") {
+          throw new Error("The owner wallet is required to authorize the current network fee.");
+        }
+        const publicKey =
+          visibleReport.publicKey ||
+          (typeof account === "object" ? account?.publicKey || account?.pubkey || account?.pubKey : null) ||
+          (typeof provider.getPublicKey === "function" ? await provider.getPublicKey().catch(() => null) : null);
+        if (!publicKey) throw new Error("The owner wallet did not expose its public key.");
+        signed = await provider.signPskt({
+          txJsonString: draft.txJson,
+          options: {
+            autoFinalized: false,
+            autoFinalize: false,
+            toSignInputs: [{ index: 0, address, publicKey }],
+            redeemScript: draft.redeemScript,
+          },
+        });
+      }
+      const result = { loading: false, ok: true, draft, signed };
       setTimeLockUnlockResult(result);
       return result;
     } catch (error) {
@@ -1680,7 +1701,10 @@ export function KasCovenVaults({ recoveryMode = false }) {
       const response = await fetch(apiPath("/api/covenant-broadcast"), {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ signedTxJson: unlockResult.signed }),
+        body: JSON.stringify({
+          signedTxJson: unlockResult.signed,
+          redeemScript: unlockResult.draft?.requiresClaimSignature ? unlockResult.draft?.redeemScript : "",
+        }),
       });
       const data = await response.json();
 
@@ -1880,6 +1904,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
           vaultAddress: draft.vault?.address,
           inactivityDaaBlocks,
           vaultId: draft.deployTxId || draft.payload?.vaultId || "",
+          feePolicy: draft.payload?.feePolicy || draft.vault?.feePolicy || "legacy-cap",
           outpointTxId: draft.selectedOutpoint?.transactionId || draft.selectedOutpoint?.transaction_id || draft.selectedOutpoint?.txId || "",
           outpointIndex: draft.selectedOutpoint?.index ?? "",
           redeemScript: draft.vault?.redeemScript,
@@ -1963,12 +1988,38 @@ export function KasCovenVaults({ recoveryMode = false }) {
           outpointTxId: dmsCreateResult.draft?.selectedOutpoint?.transactionId || dmsCreateResult.draft?.selectedOutpoint?.transaction_id || dmsCreateResult.draft?.selectedOutpoint?.txId || "",
           outpointIndex: dmsCreateResult.draft?.selectedOutpoint?.index ?? "",
           redeemScript: dmsCreateResult.draft?.vault?.redeemScript,
+          feePolicy: dmsCreateResult.draft?.payload?.feePolicy || dmsCreateResult.draft?.vault?.feePolicy || "legacy-cap",
         }).toString()}`),
         { cache: "no-store" },
       );
       const draft = await readApiResponse(response, "Could not create dead-man-switch release transaction.");
 
-      const result = { loading: false, ok: true, draft, signed: draft.txJson };
+      let signed = draft.txJson;
+      if (draft.requiresClaimSignature) {
+        if (!provider || typeof provider.signPskt !== "function") {
+          throw new Error("Connect the beneficiary wallet to authorize the current network fee.");
+        }
+        const account = visibleReport.accounts?.[0];
+        const connectedAddress = typeof account === "string" ? account : account?.address;
+        if (connectedAddress !== beneficiaryAddress) {
+          throw new Error("Connect the beneficiary wallet before claiming this dead-man-switch vault.");
+        }
+        const publicKey =
+          visibleReport.publicKey ||
+          (typeof account === "object" ? account?.publicKey || account?.pubkey || account?.pubKey : null) ||
+          (typeof provider.getPublicKey === "function" ? await provider.getPublicKey().catch(() => null) : null);
+        if (!publicKey) throw new Error("The beneficiary wallet did not expose its public key.");
+        signed = await provider.signPskt({
+          txJsonString: draft.txJson,
+          options: {
+            autoFinalized: false,
+            autoFinalize: false,
+            toSignInputs: [{ index: 0, address: beneficiaryAddress, publicKey }],
+            redeemScript: draft.redeemScript,
+          },
+        });
+      }
+      const result = { loading: false, ok: true, draft, signed };
       setDmsReleaseResult(result);
       return result;
     } catch (error) {
@@ -1993,7 +2044,10 @@ export function KasCovenVaults({ recoveryMode = false }) {
       const response = await fetch(apiPath("/api/covenant-broadcast"), {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ signedTxJson: releaseResult.signed }),
+        body: JSON.stringify({
+          signedTxJson: releaseResult.signed,
+          redeemScript: releaseResult.draft?.requiresClaimSignature ? releaseResult.draft?.redeemScript : "",
+        }),
       });
       const data = await readApiResponse(response, "Could not broadcast dead-man-switch release.");
       setDmsReleaseBroadcastResult({ loading: false, ok: true, data });
@@ -2356,7 +2410,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
               <span>Estimated unlock: {timeLockInputDaa ? new Date(Date.now() + Math.ceil(timeLockInputDaa / 10) * 1000).toLocaleString() : "Choose a future DAA score"}</span>
               <small>Time is estimated at approximately 10 DAA per second. The DAA score is authoritative.</small>
             </div>
-            <p className="vaultFeeWarning wide">Safety limit: this covenant permanently caps the opening network fee at 0.15 KAS. If required fees exceed that cap, opening must wait until fees fall.</p>
+            <p className="vaultFeeWarning wide">No fixed fee cap: when opening this vault, the owner wallet signs the current network fee. Older vaults retain their original legacy fee limit.</p>
           </div>
 
           <div className="stepGrid">
@@ -2559,7 +2613,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
               <span>Initial estimated unlock: {dmsInputDaa ? new Date(Date.now() + Math.ceil(dmsInputDaa / 10) * 1000).toLocaleString() : "Choose a future DAA score"}</span>
               <small>After a heartbeat, the unlock DAA becomes heartbeat DAA + this inactivity window.</small>
             </div>
-            <p className="vaultFeeWarning wide">Safety limit: this covenant permanently caps the beneficiary claim fee at 0.15 KAS. If required fees exceed that cap, claiming must wait until fees fall.</p>
+            <p className="vaultFeeWarning wide">No fixed fee cap: the beneficiary wallet signs and authorizes the current network fee when claiming. Older vaults retain their original legacy fee limit.</p>
           </div>
 
           <div className="stepGrid">

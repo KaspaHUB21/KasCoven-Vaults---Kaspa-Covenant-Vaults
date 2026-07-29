@@ -14,6 +14,7 @@ Environment=KASPA_API=http://127.0.0.1:8000
 Environment=KASPA_HISTORY_API=https://api.kaspa.org
 Environment=KASPA_WRPC=ws://172.30.0.1:17110
 Environment=VAULT_INDEX_PATH=/var/lib/kascoven-vaults/vault-index.json
+Environment=REDIS_URL=redis://127.0.0.1:6379/2
 ExecStart=/srv/meinprojekt/21-Challenge/VAULTS/node_modules/.bin/next start . -H 127.0.0.1 -p 8110
 Restart=always
 RestartSec=5

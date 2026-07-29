@@ -247,6 +247,7 @@ async function claimDraft(file, apiUrl, vaultIndex = 0) {
   params.set("vaultAddress", recovery.vaultAddress || "");
   params.set("unlockTime", recovery.unlockTime || "");
   params.set("redeemScript", recovery.redeemScript || "");
+  params.set("feePolicy", recovery.rawPayload?.feePolicy || "legacy-cap");
   params.set("outpointTxId", recovery.selectedOutpoint?.transactionId || recovery.selectedOutpoint?.transaction_id || recovery.selectedOutpoint?.txId || "");
   params.set("outpointIndex", recovery.selectedOutpoint?.index ?? "");
 

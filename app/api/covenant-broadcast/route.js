@@ -69,9 +69,9 @@ export async function POST(request) {
   let rpc = null;
   const originError = enforceSameOrigin(request);
   if (originError) return originError;
-  const rateError = enforceRateLimit(request, "broadcast", 12);
+  const rateError = await enforceRateLimit(request, "broadcast", 12);
   if (rateError) return rateError;
-  const release = acquireConcurrency("broadcast", 4);
+  const release = await acquireConcurrency("broadcast", 4);
   if (!release) return Response.json({ error: "The transaction relay is busy. Retry shortly." }, { status: 503 });
 
   try {
@@ -168,6 +168,6 @@ export async function POST(request) {
       { status: error?.status || (timedOut ? 504 : 500) },
     );
   } finally {
-    release();
+    await release();
   }
 }

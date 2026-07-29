@@ -16,6 +16,7 @@ const MAINNET_BLOCKS_PER_SECOND = 10;
 const VAULT_PROTOCOL = "kaslab-time-lock-vault-v1";
 const VAULT_PAYLOAD_VERSION = 2;
 const RECOVERY_PROTOCOL = "kascoven-vault-recovery-v1";
+const SIGNER_FEE_POLICY = "signer-authorized-v1";
 const KEYLESS_MAX_FEE_SOMPI = 15_000_000n;
 const DMS_NOTICE_SOMPI = 3_000_000n;
 const MAX_SCAN_PAGES = 1_000;
@@ -108,15 +109,29 @@ function scriptPublicKeyBytes(kaspa, address) {
   return Buffer.concat([versionBytes, scriptBytes]);
 }
 
-function makeTimeLockVault(kaspa, unlockTime, ownerAddress) {
+function publicKeyFromP2pkAddress(kaspa, address) {
+  const { script } = kaspa.payToAddressScript(address).toJSON();
+  const match = String(script || "").match(/^20([0-9a-f]{64})ac$/i);
+  if (!match) {
+    throw new Error("New uncapped vaults require a standard Kaspa pay-to-public-key address.");
+  }
+  return match[1].toLowerCase();
+}
+
+function makeTimeLockVault(kaspa, unlockTime, ownerAddress, feePolicy = "legacy-cap") {
   if (!ownerAddress?.startsWith("kaspa:")) {
     throw new Error("A valid owner Kaspa address is required for pinned time-lock vaults.");
   }
 
   const ownerScriptPublicKeyBytes = scriptPublicKeyBytes(kaspa, ownerAddress);
+  const signerAuthorized = feePolicy === SIGNER_FEE_POLICY;
   const builder = new kaspa.ScriptBuilder();
   builder.addLockTime(BigInt(unlockTime));
   builder.addOp(kaspa.Opcodes.OpCheckLockTimeVerify);
+  if (signerAuthorized) {
+    builder.addData(Buffer.from(publicKeyFromP2pkAddress(kaspa, ownerAddress), "hex"));
+    builder.addOp(kaspa.Opcodes.OpCheckSigVerify);
+  }
 
   builder.addOp(kaspa.Opcodes.OpTxInputCount);
   builder.addI64(1n);
@@ -131,14 +146,16 @@ function makeTimeLockVault(kaspa, unlockTime, ownerAddress) {
   builder.addData(ownerScriptPublicKeyBytes);
   builder.addOp(kaspa.Opcodes.OpEqualVerify);
 
-  builder.addI64(0n);
-  builder.addOp(kaspa.Opcodes.OpTxOutputAmount);
-  builder.addOp(kaspa.Opcodes.OpTxInputIndex);
-  builder.addOp(kaspa.Opcodes.OpTxInputAmount);
-  builder.addI64(KEYLESS_MAX_FEE_SOMPI);
-  builder.addOp(kaspa.Opcodes.OpSub);
-  builder.addOp(kaspa.Opcodes.OpGreaterThanOrEqual);
-  builder.addOp(kaspa.Opcodes.OpVerify);
+  if (!signerAuthorized) {
+    builder.addI64(0n);
+    builder.addOp(kaspa.Opcodes.OpTxOutputAmount);
+    builder.addOp(kaspa.Opcodes.OpTxInputIndex);
+    builder.addOp(kaspa.Opcodes.OpTxInputAmount);
+    builder.addI64(KEYLESS_MAX_FEE_SOMPI);
+    builder.addOp(kaspa.Opcodes.OpSub);
+    builder.addOp(kaspa.Opcodes.OpGreaterThanOrEqual);
+    builder.addOp(kaspa.Opcodes.OpVerify);
+  }
 
   builder.addOp(kaspa.Opcodes.OpTrue);
   const redeemScript = builder.toString();
@@ -151,7 +168,9 @@ function makeTimeLockVault(kaspa, unlockTime, ownerAddress) {
     ownerAddress,
     pinnedOwnerAddress: ownerAddress,
     pinnedOwnerScriptPublicKey: ownerScriptPublicKeyBytes.toString("hex"),
-    maxFeeSompi: KEYLESS_MAX_FEE_SOMPI.toString(),
+    feePolicy,
+    requiresClaimSignature: signerAuthorized,
+    maxFeeSompi: signerAuthorized ? null : KEYLESS_MAX_FEE_SOMPI.toString(),
     redeemScript,
     unlockScript: builder.encodePayToScriptHashSignatureScript(""),
     scriptPublicKey: scriptPublicKey.toJSON(),
@@ -195,7 +214,7 @@ function makeWizardVault(kaspa, unlockTime) {
   };
 }
 
-function makeDeadManSwitchVault(kaspa, inactivityDaaBlocks, beneficiaryAddress, ownerPublicKey) {
+function makeDeadManSwitchVault(kaspa, inactivityDaaBlocks, beneficiaryAddress, ownerPublicKey, feePolicy = "legacy-cap") {
   if (!beneficiaryAddress?.startsWith("kaspa:")) {
     throw new Error("A valid beneficiary Kaspa address is required for dead-man-switch vaults.");
   }
@@ -206,6 +225,10 @@ function makeDeadManSwitchVault(kaspa, inactivityDaaBlocks, beneficiaryAddress, 
   }
 
   const beneficiaryScriptPublicKeyBytes = scriptPublicKeyBytes(kaspa, beneficiaryAddress);
+  const signerAuthorized = feePolicy === SIGNER_FEE_POLICY;
+  const beneficiaryPublicKey = signerAuthorized
+    ? publicKeyFromP2pkAddress(kaspa, beneficiaryAddress)
+    : null;
   const builder = new kaspa.ScriptBuilder();
 
   builder.addOp(kaspa.Opcodes.OpIf);
@@ -237,6 +260,10 @@ function makeDeadManSwitchVault(kaspa, inactivityDaaBlocks, beneficiaryAddress, 
   builder.addOp(kaspa.Opcodes.OpElse);
   builder.addSequence(BigInt(inactivityDaaBlocks));
   builder.addOp(kaspa.Opcodes.OpCheckSequenceVerify);
+  if (signerAuthorized) {
+    builder.addData(Buffer.from(beneficiaryPublicKey, "hex"));
+    builder.addOp(kaspa.Opcodes.OpCheckSigVerify);
+  }
 
   builder.addOp(kaspa.Opcodes.OpTxInputCount);
   builder.addI64(1n);
@@ -251,24 +278,28 @@ function makeDeadManSwitchVault(kaspa, inactivityDaaBlocks, beneficiaryAddress, 
   builder.addData(beneficiaryScriptPublicKeyBytes);
   builder.addOp(kaspa.Opcodes.OpEqualVerify);
 
-  builder.addI64(0n);
-  builder.addOp(kaspa.Opcodes.OpTxOutputAmount);
-  builder.addOp(kaspa.Opcodes.OpTxInputIndex);
-  builder.addOp(kaspa.Opcodes.OpTxInputAmount);
-  builder.addI64(KEYLESS_MAX_FEE_SOMPI);
-  builder.addOp(kaspa.Opcodes.OpSub);
-  builder.addOp(kaspa.Opcodes.OpGreaterThanOrEqual);
-  builder.addOp(kaspa.Opcodes.OpVerify);
+  if (!signerAuthorized) {
+    builder.addI64(0n);
+    builder.addOp(kaspa.Opcodes.OpTxOutputAmount);
+    builder.addOp(kaspa.Opcodes.OpTxInputIndex);
+    builder.addOp(kaspa.Opcodes.OpTxInputAmount);
+    builder.addI64(KEYLESS_MAX_FEE_SOMPI);
+    builder.addOp(kaspa.Opcodes.OpSub);
+    builder.addOp(kaspa.Opcodes.OpGreaterThanOrEqual);
+    builder.addOp(kaspa.Opcodes.OpVerify);
+  }
   builder.addOp(kaspa.Opcodes.OpTrue);
   builder.addOp(kaspa.Opcodes.OpEndIf);
 
   const redeemScript = builder.toString();
   const scriptPublicKey = builder.createPayToScriptHashScript();
   const address = kaspa.addressFromScriptPublicKey(scriptPublicKey, "mainnet").toString();
-  const beneficiaryUnlockScript = new kaspa.ScriptBuilder()
-    .addI64(0n)
-    .addData(Buffer.from(redeemScript, "hex"))
-    .drain();
+  const beneficiaryUnlockScript = signerAuthorized
+    ? null
+    : new kaspa.ScriptBuilder()
+      .addI64(0n)
+      .addData(Buffer.from(redeemScript, "hex"))
+      .drain();
 
   return {
     address,
@@ -276,7 +307,9 @@ function makeDeadManSwitchVault(kaspa, inactivityDaaBlocks, beneficiaryAddress, 
     beneficiaryAddress,
     pinnedBeneficiaryAddress: beneficiaryAddress,
     ownerPublicKey: normalizedOwnerPublicKey,
-    maxFeeSompi: KEYLESS_MAX_FEE_SOMPI.toString(),
+    feePolicy,
+    requiresClaimSignature: signerAuthorized,
+    maxFeeSompi: signerAuthorized ? null : KEYLESS_MAX_FEE_SOMPI.toString(),
     redeemScript,
     unlockScript: beneficiaryUnlockScript,
     scriptPublicKey: scriptPublicKey.toJSON(),
@@ -464,7 +497,7 @@ async function createVaultDraft(kaspa, searchParams) {
   }
   const lockSeconds = Math.ceil(lockDaaBlocks / MAINNET_BLOCKS_PER_SECOND);
 
-  const vault = makeTimeLockVault(kaspa, unlockTime, address);
+  const vault = makeTimeLockVault(kaspa, unlockTime, address, SIGNER_FEE_POLICY);
   const payload = {
     p: VAULT_PROTOCOL,
     v: VAULT_PAYLOAD_VERSION,
@@ -477,7 +510,9 @@ async function createVaultDraft(kaspa, searchParams) {
     unlockTime: String(unlockTime),
     redeemScript: vault.redeemScript,
     pinnedOwnerScriptPublicKey: vault.pinnedOwnerScriptPublicKey,
-    maxFeeSompi: KEYLESS_MAX_FEE_SOMPI.toString(),
+    feePolicy: SIGNER_FEE_POLICY,
+    requiresClaimSignature: true,
+    maxFeeSompi: null,
     lockSeconds,
     lockDaaBlocks,
     lockAmountSompi: lockAmount.toString(),
@@ -728,7 +763,7 @@ async function createDeadManSwitchDraft(kaspa, searchParams) {
     return Response.json({ error: "Owner public key is required so this dead-man-switch can receive heartbeat pulses." }, { status: 400 });
   }
 
-  const vault = makeDeadManSwitchVault(kaspa, lockDaaBlocks, beneficiaryAddress, ownerPublicKey);
+  const vault = makeDeadManSwitchVault(kaspa, lockDaaBlocks, beneficiaryAddress, ownerPublicKey, SIGNER_FEE_POLICY);
   const payload = {
     p: VAULT_PROTOCOL,
     v: VAULT_PAYLOAD_VERSION,
@@ -745,7 +780,9 @@ async function createDeadManSwitchDraft(kaspa, searchParams) {
     inactivityDaaBlocks: String(lockDaaBlocks),
     redeemScript: vault.redeemScript,
     pinnedBeneficiaryScriptPublicKey: scriptPublicKeyBytes(kaspa, beneficiaryAddress).toString("hex"),
-    maxFeeSompi: KEYLESS_MAX_FEE_SOMPI.toString(),
+    feePolicy: SIGNER_FEE_POLICY,
+    requiresClaimSignature: true,
+    maxFeeSompi: null,
     lockSeconds,
     lockDaaBlocks,
     lockAmountSompi: lockAmount.toString(),
@@ -921,7 +958,7 @@ async function scanActiveVaults(kaspa, searchParams) {
         source: page === -1 ? "index-refresh" : "history-backfill",
       }).catch(() => null);
 
-      const vault = makeTimeLockVault(kaspa, payload.unlockTime, payload.ownerAddress);
+      const vault = makeTimeLockVault(kaspa, payload.unlockTime, payload.ownerAddress, payload.feePolicy);
       if (vault.address !== payload.vaultAddress || vault.redeemScript !== payload.redeemScript) {
         continue;
       }
@@ -1056,8 +1093,8 @@ async function scanDeadManSwitchVaults(kaspa, searchParams) {
 
       const vault =
         payload.dmsMode === "heartbeat"
-          ? makeDeadManSwitchVault(kaspa, BigInt(payload.inactivityDaaBlocks || payload.lockDaaBlocks || 1), payload.beneficiaryAddress, payload.ownerPublicKey)
-          : makeTimeLockVault(kaspa, payload.unlockTime, payload.beneficiaryAddress);
+          ? makeDeadManSwitchVault(kaspa, BigInt(payload.inactivityDaaBlocks || payload.lockDaaBlocks || 1), payload.beneficiaryAddress, payload.ownerPublicKey, payload.feePolicy)
+          : makeTimeLockVault(kaspa, payload.unlockTime, payload.beneficiaryAddress, payload.feePolicy);
       if (vault.address !== payload.vaultAddress || vault.redeemScript !== payload.redeemScript) {
         continue;
       }
@@ -1160,6 +1197,8 @@ async function createDeadManSwitchReleaseDraft(kaspa, searchParams) {
   const outpointTxId = searchParams.get("outpointTxId");
   const outpointIndex = searchParams.get("outpointIndex");
   const redeemScript = String(searchParams.get("redeemScript") || "").replace(/^0x/i, "");
+  const feePolicy = searchParams.get("feePolicy") || "legacy-cap";
+  const signerAuthorized = feePolicy === SIGNER_FEE_POLICY;
   const isHeartbeatVault = Boolean(inactivityDaaBlocks && ownerPublicKey);
 
   if (!beneficiaryAddress?.startsWith("kaspa:")) {
@@ -1171,8 +1210,8 @@ async function createDeadManSwitchReleaseDraft(kaspa, searchParams) {
   }
 
   const vault = isHeartbeatVault
-    ? makeDeadManSwitchVault(kaspa, BigInt(inactivityDaaBlocks), beneficiaryAddress, ownerPublicKey)
-    : makeTimeLockVault(kaspa, unlockTime, beneficiaryAddress);
+    ? makeDeadManSwitchVault(kaspa, BigInt(inactivityDaaBlocks), beneficiaryAddress, ownerPublicKey, feePolicy)
+    : makeTimeLockVault(kaspa, unlockTime, beneficiaryAddress, feePolicy);
   if (vault.address !== vaultAddress || vault.redeemScript !== redeemScript) {
     return Response.json({ error: "Vault address does not match the provided pinned beneficiary, unlock script or time." }, { status: 400 });
   }
@@ -1220,7 +1259,7 @@ async function createDeadManSwitchReleaseDraft(kaspa, searchParams) {
     sequence: isHeartbeatVault ? BigInt(inactivityDaaBlocks) : 0n,
     sigOpCount: 0,
     computeBudget: 1000,
-    signatureScript: vault.unlockScript,
+    signatureScript: signerAuthorized ? undefined : vault.unlockScript,
     utxo: {
       address: vaultAddress,
       outpoint,
@@ -1242,7 +1281,7 @@ async function createDeadManSwitchReleaseDraft(kaspa, searchParams) {
   const fee = estimateFee(kaspa, provisional);
   const returnAmount = amount - fee;
 
-  if (fee > KEYLESS_MAX_FEE_SOMPI) {
+  if (!signerAuthorized && fee > KEYLESS_MAX_FEE_SOMPI) {
     return Response.json(
       {
         error: "Estimated network fee exceeds the dead-man-switch consensus fee cap. Retry later.",
@@ -1289,7 +1328,9 @@ async function createDeadManSwitchReleaseDraft(kaspa, searchParams) {
     selectedAmountKas: (Number(amount) / 100000000).toString(),
     estimatedFeeSompi: fee.toString(),
     estimatedFeeKas: (Number(fee) / 100000000).toString(),
-    maxFeeSompi: KEYLESS_MAX_FEE_SOMPI.toString(),
+    feePolicy,
+    requiresClaimSignature: signerAuthorized,
+    maxFeeSompi: signerAuthorized ? null : KEYLESS_MAX_FEE_SOMPI.toString(),
     returnAmountSompi: returnAmount.toString(),
     returnAmountKas: (Number(returnAmount) / 100000000).toString(),
     redeemScript,
@@ -1306,6 +1347,7 @@ async function createDeadManSwitchHeartbeatDraft(kaspa, searchParams) {
   const vaultAddress = searchParams.get("vaultAddress");
   const inactivityDaaBlocks = searchParams.get("inactivityDaaBlocks");
   const vaultId = searchParams.get("vaultId");
+  const feePolicy = searchParams.get("feePolicy") || "legacy-cap";
   const outpointTxId = searchParams.get("outpointTxId");
   const outpointIndex = searchParams.get("outpointIndex");
   const redeemScript = String(searchParams.get("redeemScript") || "").replace(/^0x/i, "");
@@ -1318,7 +1360,7 @@ async function createDeadManSwitchHeartbeatDraft(kaspa, searchParams) {
     return Response.json({ error: "Heartbeat requires owner key, beneficiary address, vault address, inactivity timer and redeem script." }, { status: 400 });
   }
 
-  const vault = makeDeadManSwitchVault(kaspa, BigInt(inactivityDaaBlocks), beneficiaryAddress, ownerPublicKey);
+  const vault = makeDeadManSwitchVault(kaspa, BigInt(inactivityDaaBlocks), beneficiaryAddress, ownerPublicKey, feePolicy);
   if (vault.address !== vaultAddress || vault.redeemScript !== redeemScript) {
     return Response.json({ error: "This pulse can only refresh the selected owner-signed dead-man-switch vault." }, { status: 400 });
   }
@@ -1364,6 +1406,7 @@ async function createDeadManSwitchHeartbeatDraft(kaspa, searchParams) {
     beneficiaryAddress,
     vaultAddress,
     inactivityDaaBlocks: String(inactivityDaaBlocks),
+    feePolicy,
     vaultId: String(vaultId || ""),
     previousVaultOutpoint: vaultSelected.outpoint,
     pulsedBlueScore: currentBlueScore,
@@ -1411,9 +1454,9 @@ async function createDeadManSwitchHeartbeatDraft(kaspa, searchParams) {
   });
   const fee = estimateFee(kaspa, provisional);
   const ownerChangeAmount = ownerAmount - fee;
-  if (ownerChangeAmount <= MIN_RETURN_SOMPI || fee > KEYLESS_MAX_FEE_SOMPI) {
+  if (ownerChangeAmount <= MIN_RETURN_SOMPI) {
     return Response.json({
-      error: "The owner fee UTXO is too small or the estimated heartbeat fee exceeds the covenant safety cap.",
+      error: "The owner fee UTXO is too small for the estimated heartbeat fee.",
       ownerAmountSompi: ownerAmount.toString(),
       estimatedFeeSompi: fee.toString(),
     }, { status: 400 });
@@ -1463,6 +1506,8 @@ async function createUnlockDraft(kaspa, searchParams) {
   const outpointTxId = searchParams.get("outpointTxId");
   const outpointIndex = searchParams.get("outpointIndex");
   const redeemScript = String(searchParams.get("redeemScript") || "").replace(/^0x/i, "");
+  const feePolicy = searchParams.get("feePolicy") || "legacy-cap";
+  const signerAuthorized = feePolicy === SIGNER_FEE_POLICY;
 
   if (!address?.startsWith("kaspa:")) {
     return Response.json({ error: "A valid destination Kaspa address is required." }, { status: 400 });
@@ -1476,7 +1521,7 @@ async function createUnlockDraft(kaspa, searchParams) {
     return Response.json({ error: "Vault address, unlock time, redeem script and exact funding outpoint are required." }, { status: 400 });
   }
 
-  const vault = makeTimeLockVault(kaspa, unlockTime, ownerAddress);
+  const vault = makeTimeLockVault(kaspa, unlockTime, ownerAddress, feePolicy);
   if (vault.address !== vaultAddress || vault.redeemScript !== redeemScript) {
     return Response.json({ error: "Vault address does not match the provided pinned owner, unlock script or time." }, { status: 400 });
   }
@@ -1501,7 +1546,7 @@ async function createUnlockDraft(kaspa, searchParams) {
     sequence: 0n,
     sigOpCount: 0,
     computeBudget: 1000,
-    signatureScript: vault.unlockScript,
+    signatureScript: signerAuthorized ? undefined : vault.unlockScript,
     utxo: {
       address: vaultAddress,
       outpoint,
@@ -1523,7 +1568,7 @@ async function createUnlockDraft(kaspa, searchParams) {
   const fee = estimateFee(kaspa, provisional);
   const returnAmount = amount - fee;
 
-  if (fee > KEYLESS_MAX_FEE_SOMPI) {
+  if (!signerAuthorized && fee > KEYLESS_MAX_FEE_SOMPI) {
     return Response.json(
       {
         error: "Estimated network fee exceeds this vault's immutable consensus fee cap. Retry when fees are lower.",
@@ -1566,6 +1611,9 @@ async function createUnlockDraft(kaspa, searchParams) {
     selectedAmountKas: (Number(amount) / 100000000).toString(),
     estimatedFeeSompi: fee.toString(),
     estimatedFeeKas: (Number(fee) / 100000000).toString(),
+    feePolicy,
+    requiresClaimSignature: signerAuthorized,
+    maxFeeSompi: signerAuthorized ? null : KEYLESS_MAX_FEE_SOMPI.toString(),
     returnAmountSompi: returnAmount.toString(),
     returnAmountKas: (Number(returnAmount) / 100000000).toString(),
     redeemScript,
@@ -1748,9 +1796,9 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const action = searchParams.get("action") || "create";
   const isScan = action === "scan" || action === "dms-scan" || action === "wizard-list";
-  const rateError = enforceRateLimit(request, isScan ? "vault-scan" : "vault-draft", isScan ? 30 : 60);
+  const rateError = await enforceRateLimit(request, isScan ? "vault-scan" : "vault-draft", isScan ? 30 : 60);
   if (rateError) return rateError;
-  const release = acquireConcurrency(isScan ? "vault-scan" : "vault-draft", isScan ? 6 : 12);
+  const release = await acquireConcurrency(isScan ? "vault-scan" : "vault-draft", isScan ? 6 : 12);
   if (!release) return Response.json({ error: "The vault API is busy. Retry shortly." }, { status: 503 });
 
   try {
@@ -1773,6 +1821,6 @@ export async function GET(request) {
       { status: 500 },
     );
   } finally {
-    release();
+    await release();
   }
 }
