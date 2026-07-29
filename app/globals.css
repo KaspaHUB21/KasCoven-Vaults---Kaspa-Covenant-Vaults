@@ -1240,6 +1240,14 @@ body {
 .activeVaultSwitcher > div button:hover { background: rgba(73, 234, 217, 0.09); }
 .activeVaultSwitcher > div small { color: var(--muted); }
 .activeVaultCountdown { color: var(--kaspa-soft); font-size: clamp(1.25rem, 3vw, 2rem); }
+.vaultOpenedNotice {
+  padding: 10px 12px;
+  border: 1px solid rgba(73, 234, 217, 0.3);
+  border-radius: 10px;
+  color: var(--kaspa-soft);
+  background: rgba(73, 234, 217, 0.08);
+  font-weight: 850;
+}
 .activeVaultSafeActions { display: flex; flex-wrap: wrap; gap: 10px; }
 .activeVaultSafeActions button { border-radius: 999px; }
 .activeVaultSafeActions button:first-child:not(:disabled) {
