@@ -140,21 +140,10 @@ export default function WizardPage() {
   }
 
   async function connectWithKaspire() {
-    setWalletMenuOpen(false);
-    setPairing(null);
-    setCreateState((current) => current?.prepared ? current : { loading: true });
     try {
-      const nextWallet = await connectKaspire({
-        onDisplayUri: (nextPairing) => {
-          setPairing(nextPairing);
-          if (/Android/i.test(window.navigator.userAgent)) {
-            window.location.assign(nextPairing.intentLink);
-          }
-        },
-      });
+      const nextWallet = await connectKaspire({ onDisplayUri: setPairing });
       setPairing(null);
       await applyWallet(nextWallet, "Kaspire");
-      setCreateState((current) => current?.prepared ? current : null);
     } catch (error) {
       setCreateState((current) => ({
         ...(current?.prepared ? current : {}),
