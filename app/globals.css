@@ -1641,3 +1641,153 @@ body {
   .faqFlow { align-items: stretch; flex-direction: column; }
   .faqFlow b { align-self: center; }
 }
+
+/* One quiet, consistent navigation surface on desktop and mobile. */
+.vaultHeader .walletActions {
+  grid-template-columns: 1fr;
+  gap: 5px;
+  padding: 8px;
+}
+
+.headerMenuItem {
+  width: 100%;
+  min-height: 58px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 13px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: #eafffb;
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+  text-decoration: none;
+}
+
+.headerMenuItem strong {
+  color: inherit;
+  font-size: .94rem;
+  font-weight: 820;
+}
+
+.headerMenuItem span {
+  overflow: hidden;
+  width: 100%;
+  color: var(--muted);
+  font-size: .76rem;
+  font-weight: 560;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headerMenuItem:hover,
+.headerMenuItem:focus-visible {
+  border-color: rgba(73, 234, 217, .2);
+  background: rgba(73, 234, 217, .07);
+  box-shadow: none;
+  outline: none;
+}
+
+.headerMenuItem:disabled {
+  opacity: .44;
+}
+
+.vaultHeader .walletActions .walletConnectMenu,
+.vaultHeader .walletActions .disconnectButton,
+.vaultHeader .walletActions .headerMenuItem {
+  grid-column: 1;
+}
+
+.vaultHeader .walletActions .walletConnectMenu {
+  width: 100%;
+}
+
+.vaultHeader .walletActions .disconnectButton {
+  color: #ffd9bd;
+  border-color: transparent;
+  background: transparent;
+}
+
+.vaultHeader .walletActions .disconnectButton:hover:not(:disabled) {
+  border-color: rgba(255, 138, 32, .2);
+  background: rgba(255, 138, 32, .07);
+}
+
+.myVaultsPanel {
+  scroll-margin-top: 92px;
+}
+
+.myVaultsHeading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.myVaultsHeading .myVaultActions {
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.ownedVaultActions {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.ownedVaultActions button {
+  margin-top: 0;
+}
+
+.emptyVaultsCallout {
+  display: grid;
+  justify-items: start;
+  gap: 9px;
+  padding: 20px;
+  border: 1px dashed rgba(73, 234, 217, .24);
+  border-radius: 10px;
+  background: rgba(73, 234, 217, .035);
+}
+
+.emptyVaultsCallout > strong {
+  color: #eafffb;
+  font-size: 1.05rem;
+}
+
+.emptyVaultsCallout > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (min-width: 621px) {
+  .vaultHeader .walletActions {
+    width: min(340px, calc(100vw - 48px));
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .vaultHeader .walletActions {
+    grid-template-columns: 1fr;
+    padding: 8px;
+  }
+
+  .myVaultsHeading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .myVaultsHeading .myVaultActions,
+  .emptyVaultsCallout > div {
+    display: grid;
+  }
+
+  .myVaultsHeading .myVaultActions button,
+  .emptyVaultsCallout > div button {
+    width: 100%;
+  }
+}

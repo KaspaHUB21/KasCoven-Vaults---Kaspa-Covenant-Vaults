@@ -447,7 +447,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
   const [dmsAutoReleaseAttempted, setDmsAutoReleaseAttempted] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [currentDaaScore, setCurrentDaaScore] = useState(0);
-  const [selectedVault, setSelectedVault] = useState("timeLock");
+  const [selectedVault, setSelectedVault] = useState(null);
   const [showMyVaults, setShowMyVaults] = useState(recoveryMode);
   const [myVaultsLoading, setMyVaultsLoading] = useState(false);
   const [myVaultsError, setMyVaultsError] = useState("");
@@ -456,6 +456,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
   const timeLockReleaseRef = useRef(null);
   const dmsReleaseRef = useRef(null);
   const recoveryFileInputRef = useRef(null);
+  const myVaultsSectionRef = useRef(null);
 
   const provider = activeProvider;
   const summary = useMemo(() => providerSummary(provider), [provider]);
@@ -567,11 +568,8 @@ export function KasCovenVaults({ recoveryMode = false }) {
       const address = getAccountAddress(nextReport);
       restoreActiveTimeLockVault(address);
       restoreActiveDmsVault(address);
-      await restoreActiveTimeLockVaultFromChain(address);
-      const ownerDmsFound = await scanDmsVaultsForOwner(address);
-      if (!ownerDmsFound) {
-        await scanDmsVaultsForBeneficiary(address, { silent: true });
-      }
+      setShowMyVaults(true);
+      await refreshMyVaults(address);
       if (!cancelled) {
         window.localStorage.setItem(LAST_WALLET_STORAGE_KEY, walletName.toLowerCase());
         setStatus("");
@@ -709,11 +707,8 @@ export function KasCovenVaults({ recoveryMode = false }) {
         const address = getAccountAddress(nextReport);
         restoreActiveTimeLockVault(address);
         restoreActiveDmsVault(address);
-        await restoreActiveTimeLockVaultFromChain(address);
-        const ownerDmsFound = await scanDmsVaultsForOwner(address);
-        if (!ownerDmsFound) {
-          await scanDmsVaultsForBeneficiary(address, { silent: true });
-        }
+        setShowMyVaults(true);
+        await refreshMyVaults(address);
         return;
       }
 
@@ -796,11 +791,8 @@ export function KasCovenVaults({ recoveryMode = false }) {
       void kaspire.getPublicKey().then((publicKey) => {
         setReport((current) => current.walletName === "Kaspire" ? { ...current, publicKey } : current);
       }).catch(() => null);
-      void (async () => {
-        await restoreActiveTimeLockVaultFromChain(address);
-        const ownerDmsFound = await scanDmsVaultsForOwner(address);
-        if (!ownerDmsFound) await scanDmsVaultsForBeneficiary(address, { silent: true });
-      })();
+      setShowMyVaults(true);
+      void refreshMyVaults(address);
     } catch (error) {
       setPairing(null);
       setStatus(error?.message || "Kaspire connection failed.");
@@ -891,12 +883,10 @@ export function KasCovenVaults({ recoveryMode = false }) {
 
   async function openMyVaults() {
     const address = getAccountAddress(visibleReport);
-    if (showMyVaults) {
-      setShowMyVaults(false);
-      return;
-    }
-
     setShowMyVaults(true);
+    window.setTimeout(() => {
+      myVaultsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
     if (address?.startsWith("kaspa:")) {
       await refreshMyVaults(address);
     }
@@ -2218,19 +2208,19 @@ export function KasCovenVaults({ recoveryMode = false }) {
           className={`walletActions${mobileMenuOpen ? " isOpen" : ""}`}
           aria-label="Wallet actions"
         >
-          <a className="recoveryNavLink" href="/faq" onClick={() => setMobileMenuOpen(false)}>FAQ</a>
-          <a className="recoveryNavLink" href="/recovery" onClick={() => setMobileMenuOpen(false)}>Recovery</a>
-          <button className="vaultIconButton" type="button" onClick={() => { openMyVaults(); setMobileMenuOpen(false); }} title="My vaults" aria-label="My vaults">
-            <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-              <rect className="vaultIconFrame" x="7" y="7" width="34" height="34" rx="7" />
-              <circle className="vaultIconDial" cx="24" cy="24" r="9" />
-              <path className="vaultIconSpoke" d="M24 15v5M24 28v5M15 24h5M28 24h5M18 18l3.5 3.5M30 30l-3.5-3.5M30 18l-3.5 3.5M18 30l3.5-3.5" />
-              <path className="vaultIconLock" d="M19 26.5h10v7H19zM21 26.5v-2.2a3 3 0 0 1 6 0v2.2" />
-            </svg>
+          <a className="headerMenuItem" href="/faq" onClick={() => setMobileMenuOpen(false)}>
+            <strong>FAQ</strong><span>How vaults and recovery work</span>
+          </a>
+          <a className="headerMenuItem" href="/recovery" onClick={() => setMobileMenuOpen(false)}>
+            <strong>Recovery</strong><span>Restore portable vault records</span>
+          </a>
+          <button className="headerMenuItem" type="button" onClick={() => { openMyVaults(); setMobileMenuOpen(false); }} disabled={!accountAddress && !recoveryMode}>
+            <strong>My Vaults</strong><span>{accountAddress ? "View owner and beneficiary vaults" : "Connect a wallet first"}</span>
           </button>
           <div className="walletConnectMenu">
-            <button className="connectWalletButton" type="button" onClick={() => accountAddress ? null : toggleWalletMenu()}>
-              {accountAddress ? `${visibleReport.walletName || "Wallet"} · ${shortAddress(accountAddress)}` : "Connect Wallet"}
+            <button className="headerMenuItem" type="button" onClick={() => accountAddress ? null : toggleWalletMenu()}>
+              <strong>{accountAddress ? visibleReport.walletName || "Wallet connected" : "Connect Wallet"}</strong>
+              <span>{accountAddress ? shortAddress(accountAddress) : "Kaspire or Kasware"}</span>
             </button>
             {walletMenuOpen && !accountAddress ? (
               <div className="walletConnectDropdown" role="menu">
@@ -2245,17 +2235,14 @@ export function KasCovenVaults({ recoveryMode = false }) {
           </div>
 
           <button
-            className="disconnectButton"
+            className="headerMenuItem disconnectButton"
             type="button"
             onClick={() => { setMobileMenuOpen(false); disconnect(); }}
             disabled={!accountAddress}
             title="Disconnect wallet"
             aria-label="Disconnect wallet"
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M10 5H6.8A1.8 1.8 0 0 0 5 6.8v10.4A1.8 1.8 0 0 0 6.8 19H10" />
-              <path d="M14 8l4 4-4 4M18 12H9" />
-            </svg>
+            <strong>Disconnect wallet</strong><span>End this wallet session</span>
           </button>
         </nav>
       </header>
@@ -2300,62 +2287,6 @@ export function KasCovenVaults({ recoveryMode = false }) {
         </div>
       ) : null}
 
-      {showMyVaults ? (
-        <section className="myVaultsPanel">
-          <div>
-            <h2>My vaults</h2>
-            <p>{accountAddress ? `Connected wallet: ${shortAddress(accountAddress)}` : "Connect a wallet to scan your vaults."}</p>
-          </div>
-          <div className="myVaultActions">
-            <input ref={recoveryFileInputRef} type="file" accept="application/json,.json" hidden onChange={importRecoveryFile} />
-            <button type="button" onClick={() => recoveryFileInputRef.current?.click()}>
-              Import recovery file
-            </button>
-            <button type="button" onClick={() => scanDmsVaultsForBeneficiary(accountAddress)} disabled={!accountAddress}>
-              Scan beneficiary vaults
-            </button>
-            <button type="button" onClick={() => refreshMyVaults(accountAddress)} disabled={!accountAddress || myVaultsLoading}>
-              {myVaultsLoading ? "Scanning…" : "Refresh all vaults"}
-            </button>
-          </div>
-          {myVaultsLoading ? <p className="emptyVaults">Scanning all owner and beneficiary vaults…</p> : null}
-          {myVaultsError ? <p className="emptyVaults">Vault scan failed: {myVaultsError}</p> : null}
-          {!myVaultsLoading && ownedVaults.length ? (
-            <div className="ownedVaultGrid">
-              {ownedVaults.map((vault) => (
-                <div className="ownedVault" key={vault.id}>
-                  <strong>{vault.name}</strong>
-                  <small>{vault.type}</small>
-                  <span>{vault.amount}</span>
-                  <code>{vault.address}</code>
-                  {vault.beneficiary ? <small>Beneficiary: {shortAddress(vault.beneficiary)}</small> : null}
-                  <small>{vault.ready ? "Ready to release" : "Still locked"}</small>
-                  <small>Current DAA: {currentDaaScore.toLocaleString()}</small>
-                  <small>Unlock DAA: {vault.unlockDaa ? vault.unlockDaa.toLocaleString() : "Pending"}</small>
-                  <small>Estimated time: ≈ {formatDaaDuration(vault.remainingDaa)}</small>
-                  <button type="button" onClick={() => (vault.kind === "timeLock" ? selectTimeLockVault(vault.raw) : selectDmsVault(vault.raw))}>
-                    {vault.kind === "timeLock" ? "Select to unlock" : "Select to claim"}
-                  </button>
-                  {vault.kind === "dms" &&
-                  accountAddress === (vault.raw.ownerAddress || vault.raw.payload?.ownerAddress) &&
-                  (vault.raw.ownerPublicKey || vault.raw.payload?.ownerPublicKey) &&
-                  (vault.raw.inactivityDaaBlocks || vault.raw.payload?.inactivityDaaBlocks) ? (
-                    <button type="button" onClick={() => sendDmsPulse(vault.raw)}>
-                      Send owner pulse
-                    </button>
-                  ) : null}
-                  <button type="button" onClick={() => exportRawVaultRecovery(vault.kind, vault.raw)}>
-                    Export recovery
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : !myVaultsLoading ? (
-            <p className="emptyVaults">No active vaults found for this browser session or wallet scan yet.</p>
-          ) : null}
-        </section>
-      ) : null}
-
       <section className="vaultHeroCards" aria-label="Vault types">
         <article className={`vaultChoice ${selectedVault === "timeLock" ? "isSelected" : ""}`}>
           <img src="/timelockedvault.png" alt="Time-locked Kaspa covenant vault" />
@@ -2387,7 +2318,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
               <img src="/timelockedvault.png" alt="Closed time-locked vault" />
               <div className="activeVaultSafeBody">
                 <div className="activeVaultSafeTop">
-                  <p className="vaultEyebrow">MY VAULTS</p>
+                  <p className="vaultEyebrow">SELECTED VAULT</p>
                   <details className="activeVaultSwitcher">
                     <summary aria-label="Switch vault" title="Switch vault"><span /><span /><span /></summary>
                     <div>
@@ -2584,7 +2515,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
               <img src="/deadmansswitch.png" alt="Closed dead-man-switch vault" />
               <div className="activeVaultSafeBody">
                 <div className="activeVaultSafeTop">
-                  <p className="vaultEyebrow">MY VAULTS</p>
+                  <p className="vaultEyebrow">SELECTED VAULT</p>
                   <details className="activeVaultSwitcher">
                     <summary aria-label="Switch vault" title="Switch vault"><span /><span /><span /></summary>
                     <div>
@@ -2799,6 +2730,65 @@ export function KasCovenVaults({ recoveryMode = false }) {
           </StatusNotice>
         </section>
       )}
+
+      {showMyVaults && (accountAddress || recoveryMode) ? (
+        <section className="myVaultsPanel" id="my-vaults" ref={myVaultsSectionRef}>
+          <div className="myVaultsHeading">
+            <div>
+              <p className="vaultEyebrow">OWNER · BENEFICIARY</p>
+              <h2>My Vaults</h2>
+              <p>{accountAddress ? `Connected wallet: ${shortAddress(accountAddress)}` : "Connect a wallet or import a recovery file."}</p>
+            </div>
+            <div className="myVaultActions">
+              <input ref={recoveryFileInputRef} type="file" accept="application/json,.json" hidden onChange={importRecoveryFile} />
+              <button type="button" onClick={() => recoveryFileInputRef.current?.click()}>Import recovery</button>
+              <button type="button" onClick={() => refreshMyVaults(accountAddress)} disabled={!accountAddress || myVaultsLoading}>
+                {myVaultsLoading ? "Scanning…" : "Refresh vaults"}
+              </button>
+            </div>
+          </div>
+          {myVaultsLoading ? <p className="emptyVaults">Scanning owner and beneficiary vaults…</p> : null}
+          {myVaultsError ? <p className="emptyVaults">Vault scan failed: {myVaultsError}</p> : null}
+          {!myVaultsLoading && ownedVaults.length ? (
+            <div className="ownedVaultGrid">
+              {ownedVaults.map((vault) => (
+                <article className="ownedVault" key={vault.id}>
+                  <strong>{vault.name}</strong>
+                  <small>{vault.type}</small>
+                  <span>{vault.amount}</span>
+                  <code>{vault.address}</code>
+                  {vault.beneficiary ? <small>Beneficiary: {shortAddress(vault.beneficiary)}</small> : null}
+                  <small>{vault.ready ? "Ready to release" : "Still locked"}</small>
+                  <small>Current DAA: {currentDaaScore.toLocaleString()}</small>
+                  <small>Unlock DAA: {vault.unlockDaa ? vault.unlockDaa.toLocaleString() : "Pending"}</small>
+                  <small>Estimated time: ≈ {formatDaaDuration(vault.remainingDaa)}</small>
+                  <div className="ownedVaultActions">
+                    <button type="button" onClick={() => (vault.kind === "timeLock" ? selectTimeLockVault(vault.raw) : selectDmsVault(vault.raw))}>
+                      {vault.kind === "timeLock" ? "Select to unlock" : "Select to claim"}
+                    </button>
+                    {vault.kind === "dms" &&
+                    accountAddress === (vault.raw.ownerAddress || vault.raw.payload?.ownerAddress) &&
+                    (vault.raw.ownerPublicKey || vault.raw.payload?.ownerPublicKey) &&
+                    (vault.raw.inactivityDaaBlocks || vault.raw.payload?.inactivityDaaBlocks) ? (
+                      <button type="button" onClick={() => sendDmsPulse(vault.raw)}>Send owner pulse</button>
+                    ) : null}
+                    <button type="button" onClick={() => exportRawVaultRecovery(vault.kind, vault.raw)}>Export recovery</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : !myVaultsLoading ? (
+            <div className="emptyVaults emptyVaultsCallout">
+              <strong>No active vaults found</strong>
+              <p>This wallet does not currently own or benefit from an active vault. Create one when you are ready.</p>
+              <div>
+                <button type="button" onClick={() => startAnotherVault("timeLock")}>Create Time-Locked Vault</button>
+                <button type="button" onClick={() => startAnotherVault("dms")}>Create Dead Man&apos;s Switch</button>
+              </div>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <footer className="footer-flow" data-darkreader-ignore>
         <a href="https://kaslab.space/" aria-label="Visit HUB21 at kaslab.space">Developed by HUB21</a>
