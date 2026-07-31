@@ -2317,6 +2317,37 @@ export function KasCovenVaults({ recoveryMode = false }) {
         </article>
       </section>
 
+      {showMyVaults && accountAddress && !selectedVault ? (
+        <section className="processPanel">
+          <article className="activeVaultSafe emptyActiveVault" id="my-vaults" ref={myVaultsSectionRef}>
+            <img src="/kascoven-logo.png" alt="" aria-hidden="true" />
+            <div className="activeVaultSafeBody">
+              <p className="vaultEyebrow">MY VAULTS</p>
+              <h2>{myVaultsLoading ? "Scanning your wallet…" : "No active vaults found"}</h2>
+              <p>
+                {myVaultsLoading
+                  ? "Checking this address for owned Time-Lock vaults and owned or beneficiary Dead Man's Switch vaults."
+                  : "This wallet does not currently own or benefit from an active vault. You can create one below or scan again."}
+              </p>
+              {myVaultsError ? <p className="vaultScanError">Vault scan failed: {myVaultsError}</p> : null}
+              {!myVaultsLoading ? (
+                <div className="activeVaultSafeActions">
+                  <button type="button" onClick={() => startAnotherVault("timeLock")}>Create Time-Locked Vault</button>
+                  <button type="button" onClick={() => startAnotherVault("dms")}>Create Dead Man&apos;s Switch</button>
+                </div>
+              ) : null}
+              <div className="vaultManagementActions">
+                <button type="button" onClick={() => recoveryFileInputRef.current?.click()}>Import recovery file</button>
+                <button type="button" onClick={() => scanDmsVaultsForBeneficiary(accountAddress)} disabled={myVaultsLoading}>Scan beneficiary vaults</button>
+                <button type="button" onClick={() => refreshMyVaults(accountAddress)} disabled={myVaultsLoading}>
+                  {myVaultsLoading ? "Scanning…" : "Refresh all vaults"}
+                </button>
+              </div>
+            </div>
+          </article>
+        </section>
+      ) : null}
+
       {selectedVault === "timeLock" ? (
         <section className="processPanel">
           {!showTimeLockCreation ? (

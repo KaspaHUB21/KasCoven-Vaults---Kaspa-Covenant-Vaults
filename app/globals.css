@@ -1766,6 +1766,15 @@ body {
   background: rgba(73, 234, 217, .075);
 }
 
+.emptyActiveVault > img {
+  object-fit: cover;
+  opacity: .72;
+}
+
+.vaultScanError {
+  color: #ffd2b5 !important;
+}
+
 .emptyVaultsCallout {
   display: grid;
   justify-items: start;
