@@ -1302,6 +1302,8 @@ export function KasCovenVaults({ recoveryMode = false }) {
       const broadcast = { txId: activeVault.deployTxId, status: "Restored from beneficiary history scan" };
 
       setDmsBeneficiaryAddress(beneficiaryAddress);
+      setSelectedVault("dms");
+      setCreatingAnotherDms(false);
       setDmsCreateResult({
         loading: false,
         ok: true,
@@ -2342,11 +2344,20 @@ export function KasCovenVaults({ recoveryMode = false }) {
               ) : null}
               <div className="vaultManagementActions">
                 <button type="button" onClick={() => recoveryFileInputRef.current?.click()}>Import recovery file</button>
-                <button type="button" onClick={() => scanDmsVaultsForBeneficiary(accountAddress)} disabled={myVaultsLoading}>Scan beneficiary vaults</button>
+                <button type="button" onClick={() => scanDmsVaultsForBeneficiary(accountAddress)} disabled={myVaultsLoading || dmsScanResult?.loading}>
+                  {dmsScanResult?.loading ? "Scanning beneficiary vaults…" : "Scan beneficiary vaults"}
+                </button>
                 <button type="button" onClick={() => refreshMyVaults(accountAddress)} disabled={myVaultsLoading}>
                   {myVaultsLoading ? "Scanning…" : "Refresh all vaults"}
                 </button>
               </div>
+              {dmsScanResult && !dmsScanResult.loading ? (
+                <p className={`vaultScanFeedback${dmsScanResult.ok ? "" : " isError"}`}>
+                  {dmsScanResult.ok
+                    ? `Beneficiary scan complete: ${dmsScanResult.data?.count || 0} vault${dmsScanResult.data?.count === 1 ? "" : "s"} found.`
+                    : `Beneficiary scan failed: ${dmsScanResult.error}`}
+                </p>
+              ) : null}
             </div>
           </article>
         </section>
@@ -2408,11 +2419,20 @@ export function KasCovenVaults({ recoveryMode = false }) {
                 </details>
                 <div className="vaultManagementActions">
                   <button type="button" onClick={() => recoveryFileInputRef.current?.click()}>Import recovery file</button>
-                  <button type="button" onClick={() => scanDmsVaultsForBeneficiary(accountAddress)} disabled={!accountAddress}>Scan beneficiary vaults</button>
+                  <button type="button" onClick={() => scanDmsVaultsForBeneficiary(accountAddress)} disabled={!accountAddress || dmsScanResult?.loading}>
+                    {dmsScanResult?.loading ? "Scanning beneficiary vaults…" : "Scan beneficiary vaults"}
+                  </button>
                   <button type="button" onClick={() => refreshMyVaults(accountAddress)} disabled={!accountAddress || myVaultsLoading}>
                     {myVaultsLoading ? "Scanning…" : "Refresh all vaults"}
                   </button>
                 </div>
+                {dmsScanResult && !dmsScanResult.loading ? (
+                  <p className={`vaultScanFeedback${dmsScanResult.ok ? "" : " isError"}`}>
+                    {dmsScanResult.ok
+                      ? `Beneficiary scan complete: ${dmsScanResult.data?.count || 0} vault${dmsScanResult.data?.count === 1 ? "" : "s"} found.`
+                      : `Beneficiary scan failed: ${dmsScanResult.error}`}
+                  </p>
+                ) : null}
               </div>
             </article>
           ) : null}
@@ -2613,11 +2633,20 @@ export function KasCovenVaults({ recoveryMode = false }) {
                 </details>
                 <div className="vaultManagementActions">
                   <button type="button" onClick={() => recoveryFileInputRef.current?.click()}>Import recovery file</button>
-                  <button type="button" onClick={() => scanDmsVaultsForBeneficiary(accountAddress)} disabled={!accountAddress}>Scan beneficiary vaults</button>
+                  <button type="button" onClick={() => scanDmsVaultsForBeneficiary(accountAddress)} disabled={!accountAddress || dmsScanResult?.loading}>
+                    {dmsScanResult?.loading ? "Scanning beneficiary vaults…" : "Scan beneficiary vaults"}
+                  </button>
                   <button type="button" onClick={() => refreshMyVaults(accountAddress)} disabled={!accountAddress || myVaultsLoading}>
                     {myVaultsLoading ? "Scanning…" : "Refresh all vaults"}
                   </button>
                 </div>
+                {dmsScanResult && !dmsScanResult.loading ? (
+                  <p className={`vaultScanFeedback${dmsScanResult.ok ? "" : " isError"}`}>
+                    {dmsScanResult.ok
+                      ? `Beneficiary scan complete: ${dmsScanResult.data?.count || 0} vault${dmsScanResult.data?.count === 1 ? "" : "s"} found.`
+                      : `Beneficiary scan failed: ${dmsScanResult.error}`}
+                  </p>
+                ) : null}
               </div>
             </article>
           ) : null}

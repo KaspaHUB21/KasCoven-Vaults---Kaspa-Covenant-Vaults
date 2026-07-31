@@ -1775,6 +1775,16 @@ body {
   color: #ffd2b5 !important;
 }
 
+.vaultScanFeedback {
+  margin: 9px 0 0 !important;
+  color: var(--kaspa-soft) !important;
+  font-size: .78rem;
+}
+
+.vaultScanFeedback.isError {
+  color: #ffd2b5 !important;
+}
+
 .emptyVaultsCallout {
   display: grid;
   justify-items: start;
