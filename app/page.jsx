@@ -884,12 +884,12 @@ export function KasCovenVaults({ recoveryMode = false }) {
   async function openMyVaults() {
     const address = getAccountAddress(visibleReport);
     setShowMyVaults(true);
-    window.setTimeout(() => {
-      myVaultsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
     if (address?.startsWith("kaspa:")) {
       await refreshMyVaults(address);
     }
+    window.setTimeout(() => {
+      myVaultsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
   }
 
   async function refreshMyVaults(address) {
@@ -920,6 +920,10 @@ export function KasCovenVaults({ recoveryMode = false }) {
       // Publish one complete snapshot so the panel never renders partial scan results.
       setDiscoveredTimeLockVaults(timeLockVaults);
       setDiscoveredDmsVaults(dmsVaults);
+      if (!activeTimeLockBroadcasted && !activeDmsBroadcasted) {
+        if (timeLockVaults[0]) selectTimeLockVault(timeLockVaults[0]);
+        else if (dmsVaults[0]) selectDmsVault(dmsVaults[0]);
+      }
 
       const activeTimeLockKeys = new Set(timeLockVaults.map(vaultSelectionKey));
       for (const record of loadActiveTimeLockVaults(address)) {
@@ -2287,6 +2291,8 @@ export function KasCovenVaults({ recoveryMode = false }) {
         </div>
       ) : null}
 
+      <input ref={recoveryFileInputRef} type="file" accept="application/json,.json" hidden onChange={importRecoveryFile} />
+
       <section className="vaultHeroCards" aria-label="Vault types">
         <article className={`vaultChoice ${selectedVault === "timeLock" ? "isSelected" : ""}`}>
           <img src="/timelockedvault.png" alt="Time-locked Kaspa covenant vault" />
@@ -2314,7 +2320,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
       {selectedVault === "timeLock" ? (
         <section className="processPanel">
           {!showTimeLockCreation ? (
-            <article className="activeVaultSafe">
+            <article className="activeVaultSafe" id="my-vaults" ref={myVaultsSectionRef}>
               <img src="/timelockedvault.png" alt="Closed time-locked vault" />
               <div className="activeVaultSafeBody">
                 <div className="activeVaultSafeTop">
@@ -2352,6 +2358,11 @@ export function KasCovenVaults({ recoveryMode = false }) {
                   <button type="button" onClick={() => startAnotherVault("timeLock")}>Create another vault</button>
                   <button type="button" onClick={() => exportVaultRecovery("timeLock", timeLockCreateResult?.draft, timeLockCreateBroadcastResult?.data)}>
                     Export recovery
+                  </button>
+                  <button type="button" onClick={() => recoveryFileInputRef.current?.click()}>Import recovery file</button>
+                  <button type="button" onClick={() => scanDmsVaultsForBeneficiary(accountAddress)} disabled={!accountAddress}>Scan beneficiary vaults</button>
+                  <button type="button" onClick={() => refreshMyVaults(accountAddress)} disabled={!accountAddress || myVaultsLoading}>
+                    {myVaultsLoading ? "Scanning…" : "Refresh all vaults"}
                   </button>
                 </div>
                 <details className="activeVaultDetails">
@@ -2511,7 +2522,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
       ) : (
         <section className="processPanel">
           {!showDmsCreation ? (
-            <article className="activeVaultSafe">
+            <article className="activeVaultSafe" id="my-vaults" ref={myVaultsSectionRef}>
               <img src="/deadmansswitch.png" alt="Closed dead-man-switch vault" />
               <div className="activeVaultSafeBody">
                 <div className="activeVaultSafeTop">
@@ -2550,6 +2561,11 @@ export function KasCovenVaults({ recoveryMode = false }) {
                   <button type="button" onClick={() => startAnotherVault("dms")}>Create another vault</button>
                   <button type="button" onClick={() => exportVaultRecovery("dms", dmsCreateResult?.draft, dmsCreateBroadcastResult?.data)}>
                     Export recovery
+                  </button>
+                  <button type="button" onClick={() => recoveryFileInputRef.current?.click()}>Import recovery file</button>
+                  <button type="button" onClick={() => scanDmsVaultsForBeneficiary(accountAddress)} disabled={!accountAddress}>Scan beneficiary vaults</button>
+                  <button type="button" onClick={() => refreshMyVaults(accountAddress)} disabled={!accountAddress || myVaultsLoading}>
+                    {myVaultsLoading ? "Scanning…" : "Refresh all vaults"}
                   </button>
                 </div>
                 <details className="activeVaultDetails">
@@ -2730,65 +2746,6 @@ export function KasCovenVaults({ recoveryMode = false }) {
           </StatusNotice>
         </section>
       )}
-
-      {showMyVaults && (accountAddress || recoveryMode) ? (
-        <section className="myVaultsPanel" id="my-vaults" ref={myVaultsSectionRef}>
-          <div className="myVaultsHeading">
-            <div>
-              <p className="vaultEyebrow">OWNER · BENEFICIARY</p>
-              <h2>My Vaults</h2>
-              <p>{accountAddress ? `Connected wallet: ${shortAddress(accountAddress)}` : "Connect a wallet or import a recovery file."}</p>
-            </div>
-            <div className="myVaultActions">
-              <input ref={recoveryFileInputRef} type="file" accept="application/json,.json" hidden onChange={importRecoveryFile} />
-              <button type="button" onClick={() => recoveryFileInputRef.current?.click()}>Import recovery</button>
-              <button type="button" onClick={() => refreshMyVaults(accountAddress)} disabled={!accountAddress || myVaultsLoading}>
-                {myVaultsLoading ? "Scanning…" : "Refresh vaults"}
-              </button>
-            </div>
-          </div>
-          {myVaultsLoading ? <p className="emptyVaults">Scanning owner and beneficiary vaults…</p> : null}
-          {myVaultsError ? <p className="emptyVaults">Vault scan failed: {myVaultsError}</p> : null}
-          {!myVaultsLoading && ownedVaults.length ? (
-            <div className="ownedVaultGrid">
-              {ownedVaults.map((vault) => (
-                <article className="ownedVault" key={vault.id}>
-                  <strong>{vault.name}</strong>
-                  <small>{vault.type}</small>
-                  <span>{vault.amount}</span>
-                  <code>{vault.address}</code>
-                  {vault.beneficiary ? <small>Beneficiary: {shortAddress(vault.beneficiary)}</small> : null}
-                  <small>{vault.ready ? "Ready to release" : "Still locked"}</small>
-                  <small>Current DAA: {currentDaaScore.toLocaleString()}</small>
-                  <small>Unlock DAA: {vault.unlockDaa ? vault.unlockDaa.toLocaleString() : "Pending"}</small>
-                  <small>Estimated time: ≈ {formatDaaDuration(vault.remainingDaa)}</small>
-                  <div className="ownedVaultActions">
-                    <button type="button" onClick={() => (vault.kind === "timeLock" ? selectTimeLockVault(vault.raw) : selectDmsVault(vault.raw))}>
-                      {vault.kind === "timeLock" ? "Select to unlock" : "Select to claim"}
-                    </button>
-                    {vault.kind === "dms" &&
-                    accountAddress === (vault.raw.ownerAddress || vault.raw.payload?.ownerAddress) &&
-                    (vault.raw.ownerPublicKey || vault.raw.payload?.ownerPublicKey) &&
-                    (vault.raw.inactivityDaaBlocks || vault.raw.payload?.inactivityDaaBlocks) ? (
-                      <button type="button" onClick={() => sendDmsPulse(vault.raw)}>Send owner pulse</button>
-                    ) : null}
-                    <button type="button" onClick={() => exportRawVaultRecovery(vault.kind, vault.raw)}>Export recovery</button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : !myVaultsLoading ? (
-            <div className="emptyVaults emptyVaultsCallout">
-              <strong>No active vaults found</strong>
-              <p>This wallet does not currently own or benefit from an active vault. Create one when you are ready.</p>
-              <div>
-                <button type="button" onClick={() => startAnotherVault("timeLock")}>Create Time-Locked Vault</button>
-                <button type="button" onClick={() => startAnotherVault("dms")}>Create Dead Man&apos;s Switch</button>
-              </div>
-            </div>
-          ) : null}
-        </section>
-      ) : null}
 
       <footer className="footer-flow" data-darkreader-ignore>
         <a href="https://kaslab.space/" aria-label="Visit HUB21 at kaslab.space">Developed by HUB21</a>
