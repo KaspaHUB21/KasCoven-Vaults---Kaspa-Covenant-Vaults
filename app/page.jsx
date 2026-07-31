@@ -2208,15 +2208,6 @@ export function KasCovenVaults({ recoveryMode = false }) {
           className={`walletActions${mobileMenuOpen ? " isOpen" : ""}`}
           aria-label="Wallet actions"
         >
-          <a className="headerMenuItem" href="/faq" onClick={() => setMobileMenuOpen(false)}>
-            <strong>FAQ</strong><span>How vaults and recovery work</span>
-          </a>
-          <a className="headerMenuItem" href="/recovery" onClick={() => setMobileMenuOpen(false)}>
-            <strong>Recovery</strong><span>Restore portable vault records</span>
-          </a>
-          <button className="headerMenuItem" type="button" onClick={() => { openMyVaults(); setMobileMenuOpen(false); }} disabled={!accountAddress && !recoveryMode}>
-            <strong>My Vaults</strong><span>{accountAddress ? "View owner and beneficiary vaults" : "Connect a wallet first"}</span>
-          </button>
           <div className="walletConnectMenu">
             <button className="headerMenuItem" type="button" onClick={() => accountAddress ? null : toggleWalletMenu()}>
               <strong>{accountAddress ? visibleReport.walletName || "Wallet connected" : "Connect Wallet"}</strong>
@@ -2233,6 +2224,15 @@ export function KasCovenVaults({ recoveryMode = false }) {
               </div>
             ) : null}
           </div>
+          <button className="headerMenuItem" type="button" onClick={() => { openMyVaults(); setMobileMenuOpen(false); }} disabled={!accountAddress && !recoveryMode}>
+            <strong>My Vaults</strong><span>{accountAddress ? "View owner and beneficiary vaults" : "Connect a wallet first"}</span>
+          </button>
+          <a className="headerMenuItem" href="/faq" onClick={() => setMobileMenuOpen(false)}>
+            <strong>FAQ</strong><span>How vaults and recovery work</span>
+          </a>
+          <a className="headerMenuItem" href="/recovery" onClick={() => setMobileMenuOpen(false)}>
+            <strong>Recovery</strong><span>Restore portable vault records</span>
+          </a>
 
           <button
             className="headerMenuItem disconnectButton"
