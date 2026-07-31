@@ -1742,6 +1742,30 @@ body {
   margin-top: 0;
 }
 
+.vaultManagementActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(73, 234, 217, .12);
+}
+
+.vaultManagementActions button {
+  min-height: 38px;
+  padding: 7px 11px;
+  border-color: rgba(73, 234, 217, .14);
+  color: var(--muted);
+  background: rgba(73, 234, 217, .035);
+  font-size: .78rem;
+}
+
+.vaultManagementActions button:hover:not(:disabled) {
+  color: #eafffb;
+  border-color: rgba(73, 234, 217, .28);
+  background: rgba(73, 234, 217, .075);
+}
+
 .emptyVaultsCallout {
   display: grid;
   justify-items: start;
@@ -1789,5 +1813,9 @@ body {
   .myVaultsHeading .myVaultActions button,
   .emptyVaultsCallout > div button {
     width: 100%;
+  }
+
+  .vaultManagementActions {
+    display: grid;
   }
 }

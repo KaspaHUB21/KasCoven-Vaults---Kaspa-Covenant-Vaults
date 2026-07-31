@@ -2359,11 +2359,6 @@ export function KasCovenVaults({ recoveryMode = false }) {
                   <button type="button" onClick={() => exportVaultRecovery("timeLock", timeLockCreateResult?.draft, timeLockCreateBroadcastResult?.data)}>
                     Export recovery
                   </button>
-                  <button type="button" onClick={() => recoveryFileInputRef.current?.click()}>Import recovery file</button>
-                  <button type="button" onClick={() => scanDmsVaultsForBeneficiary(accountAddress)} disabled={!accountAddress}>Scan beneficiary vaults</button>
-                  <button type="button" onClick={() => refreshMyVaults(accountAddress)} disabled={!accountAddress || myVaultsLoading}>
-                    {myVaultsLoading ? "Scanning…" : "Refresh all vaults"}
-                  </button>
                 </div>
                 <details className="activeVaultDetails">
                   <summary>Technical details and additional information</summary>
@@ -2376,6 +2371,13 @@ export function KasCovenVaults({ recoveryMode = false }) {
                   ]} />
                   <DebugDetails data={timeLockDebug} />
                 </details>
+                <div className="vaultManagementActions">
+                  <button type="button" onClick={() => recoveryFileInputRef.current?.click()}>Import recovery file</button>
+                  <button type="button" onClick={() => scanDmsVaultsForBeneficiary(accountAddress)} disabled={!accountAddress}>Scan beneficiary vaults</button>
+                  <button type="button" onClick={() => refreshMyVaults(accountAddress)} disabled={!accountAddress || myVaultsLoading}>
+                    {myVaultsLoading ? "Scanning…" : "Refresh all vaults"}
+                  </button>
+                </div>
               </div>
             </article>
           ) : null}
@@ -2562,11 +2564,6 @@ export function KasCovenVaults({ recoveryMode = false }) {
                   <button type="button" onClick={() => exportVaultRecovery("dms", dmsCreateResult?.draft, dmsCreateBroadcastResult?.data)}>
                     Export recovery
                   </button>
-                  <button type="button" onClick={() => recoveryFileInputRef.current?.click()}>Import recovery file</button>
-                  <button type="button" onClick={() => scanDmsVaultsForBeneficiary(accountAddress)} disabled={!accountAddress}>Scan beneficiary vaults</button>
-                  <button type="button" onClick={() => refreshMyVaults(accountAddress)} disabled={!accountAddress || myVaultsLoading}>
-                    {myVaultsLoading ? "Scanning…" : "Refresh all vaults"}
-                  </button>
                 </div>
                 <details className="activeVaultDetails">
                   <summary>Technical details and additional information</summary>
@@ -2579,6 +2576,13 @@ export function KasCovenVaults({ recoveryMode = false }) {
                   ]} />
                   <DebugDetails data={dmsDebug} />
                 </details>
+                <div className="vaultManagementActions">
+                  <button type="button" onClick={() => recoveryFileInputRef.current?.click()}>Import recovery file</button>
+                  <button type="button" onClick={() => scanDmsVaultsForBeneficiary(accountAddress)} disabled={!accountAddress}>Scan beneficiary vaults</button>
+                  <button type="button" onClick={() => refreshMyVaults(accountAddress)} disabled={!accountAddress || myVaultsLoading}>
+                    {myVaultsLoading ? "Scanning…" : "Refresh all vaults"}
+                  </button>
+                </div>
               </div>
             </article>
           ) : null}
