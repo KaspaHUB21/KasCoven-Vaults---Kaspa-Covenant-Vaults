@@ -2218,6 +2218,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
           className={`walletActions${mobileMenuOpen ? " isOpen" : ""}`}
           aria-label="Wallet actions"
         >
+          <a className="recoveryNavLink" href="/faq" onClick={() => setMobileMenuOpen(false)}>FAQ</a>
           <a className="recoveryNavLink" href="/recovery" onClick={() => setMobileMenuOpen(false)}>Recovery</a>
           <button className="vaultIconButton" type="button" onClick={() => { openMyVaults(); setMobileMenuOpen(false); }} title="My vaults" aria-label="My vaults">
             <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
