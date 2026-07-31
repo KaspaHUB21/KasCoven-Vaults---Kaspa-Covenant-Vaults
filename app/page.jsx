@@ -447,7 +447,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
   const [dmsAutoReleaseAttempted, setDmsAutoReleaseAttempted] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [currentDaaScore, setCurrentDaaScore] = useState(0);
-  const [selectedVault, setSelectedVault] = useState(null);
+  const [selectedVault, setSelectedVault] = useState("timeLock");
   const [showMyVaults, setShowMyVaults] = useState(recoveryMode);
   const [myVaultsLoading, setMyVaultsLoading] = useState(false);
   const [myVaultsError, setMyVaultsError] = useState("");
@@ -2317,7 +2317,11 @@ export function KasCovenVaults({ recoveryMode = false }) {
         </article>
       </section>
 
-      {showMyVaults && accountAddress && !selectedVault ? (
+      {showMyVaults &&
+      accountAddress &&
+      !ownedVaults.length &&
+      !activeTimeLockBroadcasted &&
+      !activeDmsBroadcasted ? (
         <section className="processPanel">
           <article className="activeVaultSafe emptyActiveVault" id="my-vaults" ref={myVaultsSectionRef}>
             <img src="/kascoven-logo.png" alt="" aria-hidden="true" />
