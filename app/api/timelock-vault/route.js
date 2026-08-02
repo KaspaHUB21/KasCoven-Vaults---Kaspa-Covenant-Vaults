@@ -660,45 +660,59 @@ async function createWizardVaultDraft(kaspa, searchParams) {
   const utxoResponse = await fetch(kaspaApiUrl(`/addresses/${address}/utxos`), { cache: "no-store" });
   if (!utxoResponse.ok) throw new Error("Kaspa UTXO API returned an error for the creator wallet.");
 
-  const selected = pickSpendableUtxo(await utxoResponse.json(), lockAmount + MIN_RETURN_SOMPI);
-  if (!selected) {
-    return Response.json({ error: "Not enough spendable KAS for this special vault." }, { status: 400 });
+  const candidates = spendableUtxos(await utxoResponse.json());
+  const inputs = [];
+  let amount = 0n;
+  let fee = 0n;
+
+  for (const selected of candidates) {
+    const outpoint = selected.outpoint;
+    const utxoEntry = selected.utxoEntry;
+    const inputAmount = asBigInt(utxoEntry.amount);
+    inputs.push({
+      previousOutpoint: outpoint,
+      sequence: 0n,
+      sigOpCount: 1,
+      utxo: {
+        address,
+        outpoint,
+        amount: inputAmount,
+        scriptPublicKey: makeScriptPublicKey(kaspa, utxoEntry.scriptPublicKey),
+        blockDaaScore: asBigInt(utxoEntry.blockDaaScore),
+        isCoinbase: Boolean(utxoEntry.isCoinbase),
+      },
+    });
+    amount += inputAmount;
+
+    const provisional = new kaspa.Transaction({
+      version: 0,
+      inputs,
+      outputs: [
+        new kaspa.TransactionOutput(lockAmount, vaultScript),
+        new kaspa.TransactionOutput(MIN_RETURN_SOMPI, changeScript),
+      ],
+      lockTime: 0n,
+      gas: 0n,
+      payload: payloadHex,
+      subnetworkId: "0000000000000000000000000000000000000000",
+    });
+    fee = estimateFee(kaspa, provisional);
+    if (amount - lockAmount - fee >= MIN_RETURN_SOMPI) break;
   }
 
-  const outpoint = selected.outpoint;
-  const utxoEntry = selected.utxoEntry;
-  const amount = asBigInt(utxoEntry.amount);
-  const input = {
-    previousOutpoint: outpoint,
-    sequence: 0n,
-    sigOpCount: 1,
-    utxo: {
-      address,
-      outpoint,
-      amount,
-      scriptPublicKey: makeScriptPublicKey(kaspa, utxoEntry.scriptPublicKey),
-      blockDaaScore: asBigInt(utxoEntry.blockDaaScore),
-      isCoinbase: Boolean(utxoEntry.isCoinbase),
-    },
-  };
-  const provisional = new kaspa.Transaction({
-    version: 0,
-    inputs: [input],
-    outputs: [new kaspa.TransactionOutput(lockAmount, vaultScript)],
-    lockTime: 0n,
-    gas: 0n,
-    payload: payloadHex,
-    subnetworkId: "0000000000000000000000000000000000000000",
-  });
-  const fee = estimateFee(kaspa, provisional);
-  const changeAmount = amount - lockAmount - fee;
-  if (changeAmount < MIN_RETURN_SOMPI) {
-    return Response.json({ error: "Not enough spendable KAS after the network fee." }, { status: 400 });
+  if (!inputs.length || amount - lockAmount - fee < MIN_RETURN_SOMPI) {
+    return Response.json({
+      error: "Not enough spendable KAS for this special vault.",
+      spendableAmountSompi: amount.toString(),
+      neededSompi: (lockAmount + fee + MIN_RETURN_SOMPI).toString(),
+    }, { status: 400 });
   }
+
+  const changeAmount = amount - lockAmount - fee;
 
   const transaction = new kaspa.Transaction({
     version: 0,
-    inputs: [input],
+    inputs,
     outputs: [
       new kaspa.TransactionOutput(lockAmount, vaultScript),
       new kaspa.TransactionOutput(changeAmount, changeScript),
@@ -723,6 +737,7 @@ async function createWizardVaultDraft(kaspa, searchParams) {
     unlockDaaScore: String(unlockTime),
     estimatedFeeSompi: fee.toString(),
     changeAmountSompi: changeAmount.toString(),
+    walletInputCount: inputs.length,
     tx: JSON.parse(transaction.serializeToSafeJSON()),
     txJson: transaction.serializeToSafeJSON(),
   });

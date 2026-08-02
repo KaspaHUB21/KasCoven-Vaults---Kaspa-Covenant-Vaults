@@ -369,12 +369,13 @@ export default function WizardPage() {
     try {
       if (!wallet || !address || !publicKey) throw new Error("Reconnect the wallet used to prepare this prize.");
       const draft = createState.draft;
+      const walletInputCount = Math.max(1, Number(draft.walletInputCount || draft.tx?.inputs?.length || 1));
       const signed = await wallet.signPskt({
         txJsonString: draft.txJson,
         options: {
           autoFinalized: false,
           autoFinalize: false,
-          toSignInputs: [{ index: 0, address, publicKey }],
+          toSignInputs: Array.from({ length: walletInputCount }, (_, index) => ({ index, address, publicKey })),
         },
       });
       const broadcast = await readResponse(await fetch("/api/covenant-broadcast", {
