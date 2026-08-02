@@ -476,6 +476,44 @@ function estimateFee(kaspa, transaction) {
   return txMass * TOCCATA_FEE_RATE + FEE_SAFETY_BUFFER_SOMPI;
 }
 
+function selectFundingInputs(kaspa, utxos, address, fixedOutputs, fixedAmount, changeScript, payloadHex) {
+  const inputs = [];
+  let amount = 0n;
+  let fee = 0n;
+  for (const selected of spendableUtxos(utxos)) {
+    const outpoint = selected.outpoint;
+    const utxoEntry = selected.utxoEntry;
+    const inputAmount = asBigInt(utxoEntry.amount);
+    inputs.push({
+      previousOutpoint: outpoint,
+      sequence: 0n,
+      sigOpCount: 1,
+      utxo: {
+        address,
+        outpoint,
+        amount: inputAmount,
+        scriptPublicKey: makeScriptPublicKey(kaspa, utxoEntry.scriptPublicKey),
+        blockDaaScore: asBigInt(utxoEntry.blockDaaScore),
+        isCoinbase: Boolean(utxoEntry.isCoinbase),
+      },
+    });
+    amount += inputAmount;
+    const provisional = new kaspa.Transaction({
+      version: 0,
+      inputs,
+      outputs: [...fixedOutputs, new kaspa.TransactionOutput(MIN_RETURN_SOMPI, changeScript)],
+      lockTime: 0n,
+      gas: 0n,
+      payload: payloadHex,
+      subnetworkId: "0000000000000000000000000000000000000000",
+    });
+    fee = estimateFee(kaspa, provisional);
+    if (amount - fixedAmount - fee >= MIN_RETURN_SOMPI) break;
+  }
+
+  return { inputs, amount, fee, fixedAmount };
+}
+
 async function createVaultDraft(kaspa, searchParams) {
   const address = searchParams.get("address");
   const lockAmount = kasToSompi(searchParams.get("amountKas"));
@@ -529,61 +567,32 @@ async function createVaultDraft(kaspa, searchParams) {
     throw new Error("Kaspa UTXO API returned an error for the wallet address.");
   }
 
-  const selected = pickSpendableUtxo(await utxoResponse.json(), lockAmount + MIN_RETURN_SOMPI);
-  if (!selected) {
+  const funding = selectFundingInputs(
+    kaspa,
+    await utxoResponse.json(),
+    address,
+    [new kaspa.TransactionOutput(lockAmount, vaultScript)],
+    lockAmount,
+    changeScript,
+    payloadHex,
+  );
+  const { inputs, amount, fee } = funding;
+  if (!inputs.length || amount - lockAmount - fee < MIN_RETURN_SOMPI) {
     return Response.json(
       {
         error: "Not enough spendable KAS for this time-locked vault. Lower the amount or fund this wallet first.",
         requestedAmountKas: (Number(lockAmount) / 100000000).toString(),
-      },
-      { status: 400 },
-    );
-  }
-
-  const outpoint = selected.outpoint;
-  const utxoEntry = selected.utxoEntry;
-  const amount = asBigInt(utxoEntry.amount);
-  const inputScript = makeScriptPublicKey(kaspa, utxoEntry.scriptPublicKey);
-  const input = {
-    previousOutpoint: outpoint,
-    sequence: 0n,
-    sigOpCount: 1,
-    utxo: {
-      address,
-      outpoint,
-      amount,
-      scriptPublicKey: inputScript,
-      blockDaaScore: asBigInt(utxoEntry.blockDaaScore),
-      isCoinbase: Boolean(utxoEntry.isCoinbase),
-    },
-  };
-  const provisional = new kaspa.Transaction({
-    version: 0,
-    inputs: [input],
-    outputs: [new kaspa.TransactionOutput(lockAmount, vaultScript)],
-    lockTime: 0n,
-    gas: 0n,
-    payload: payloadHex,
-    subnetworkId: "0000000000000000000000000000000000000000",
-  });
-  const fee = estimateFee(kaspa, provisional);
-  const changeAmount = amount - lockAmount - fee;
-
-  if (changeAmount < MIN_RETURN_SOMPI) {
-    return Response.json(
-      {
-        error: "Not enough spendable KAS for this time-locked vault after the network fee. Lower the amount or fund this wallet first.",
-        amountSompi: amount.toString(),
+        spendableAmountSompi: amount.toString(),
         neededSompi: (lockAmount + fee + MIN_RETURN_SOMPI).toString(),
-        estimatedFeeSompi: fee.toString(),
       },
       { status: 400 },
     );
   }
+  const changeAmount = amount - lockAmount - fee;
 
   const transaction = new kaspa.Transaction({
     version: 0,
-    inputs: [input],
+    inputs,
     outputs: [
       new kaspa.TransactionOutput(lockAmount, vaultScript),
       new kaspa.TransactionOutput(changeAmount, changeScript),
@@ -603,7 +612,9 @@ async function createVaultDraft(kaspa, searchParams) {
     payload,
     lockDaaBlocks,
     estimatedUnlockTimeIso: new Date(Date.now() + lockSeconds * 1000).toISOString(),
-    selectedOutpoint: outpoint,
+    selectedOutpoint: inputs[0].previousOutpoint,
+    fundingOutpoints: inputs.map((input) => input.previousOutpoint),
+    walletInputCount: inputs.length,
     lockSeconds,
     lockAmountSompi: lockAmount.toString(),
     lockAmountKas: (Number(lockAmount) / 100000000).toString(),
@@ -815,66 +826,37 @@ async function createDeadManSwitchDraft(kaspa, searchParams) {
     throw new Error("Kaspa UTXO API returned an error for the owner wallet address.");
   }
 
-  const selected = pickSpendableUtxo(await utxoResponse.json(), lockAmount + DMS_NOTICE_SOMPI + MIN_RETURN_SOMPI);
-  if (!selected) {
+  const fixedAmount = lockAmount + DMS_NOTICE_SOMPI;
+  const funding = selectFundingInputs(
+    kaspa,
+    await utxoResponse.json(),
+    address,
+    [
+      new kaspa.TransactionOutput(lockAmount, vaultScript),
+      new kaspa.TransactionOutput(DMS_NOTICE_SOMPI, beneficiaryScript),
+    ],
+    fixedAmount,
+    changeScript,
+    payloadHex,
+  );
+  const { inputs, amount, fee } = funding;
+  if (!inputs.length || amount - fixedAmount - fee < MIN_RETURN_SOMPI) {
     return Response.json(
       {
         error: "Not enough spendable KAS for this dead-man-switch vault. Lower the amount or fund this wallet first.",
         requestedAmountKas: (Number(lockAmount) / 100000000).toString(),
         noticeKas: (Number(DMS_NOTICE_SOMPI) / 100000000).toString(),
+        spendableAmountSompi: amount.toString(),
+        neededSompi: (fixedAmount + fee + MIN_RETURN_SOMPI).toString(),
       },
       { status: 400 },
     );
   }
-
-  const outpoint = selected.outpoint;
-  const utxoEntry = selected.utxoEntry;
-  const amount = asBigInt(utxoEntry.amount);
-  const inputScript = makeScriptPublicKey(kaspa, utxoEntry.scriptPublicKey);
-  const input = {
-    previousOutpoint: outpoint,
-    sequence: 0n,
-    sigOpCount: 1,
-    utxo: {
-      address,
-      outpoint,
-      amount,
-      scriptPublicKey: inputScript,
-      blockDaaScore: asBigInt(utxoEntry.blockDaaScore),
-      isCoinbase: Boolean(utxoEntry.isCoinbase),
-    },
-  };
-  const provisional = new kaspa.Transaction({
-    version: 0,
-    inputs: [input],
-    outputs: [
-      new kaspa.TransactionOutput(lockAmount, vaultScript),
-      new kaspa.TransactionOutput(DMS_NOTICE_SOMPI, beneficiaryScript),
-    ],
-    lockTime: 0n,
-    gas: 0n,
-    payload: payloadHex,
-    subnetworkId: "0000000000000000000000000000000000000000",
-  });
-  const fee = estimateFee(kaspa, provisional);
   const changeAmount = amount - lockAmount - DMS_NOTICE_SOMPI - fee;
-
-  if (changeAmount < MIN_RETURN_SOMPI) {
-    return Response.json(
-      {
-        error: "Not enough spendable KAS for this dead-man-switch vault after the beneficiary notice output and network fee. Lower the amount or fund this wallet first.",
-        amountSompi: amount.toString(),
-        neededSompi: (lockAmount + DMS_NOTICE_SOMPI + fee + MIN_RETURN_SOMPI).toString(),
-        noticeSompi: DMS_NOTICE_SOMPI.toString(),
-        estimatedFeeSompi: fee.toString(),
-      },
-      { status: 400 },
-    );
-  }
 
   const transaction = new kaspa.Transaction({
     version: 0,
-    inputs: [input],
+    inputs,
     outputs: [
       new kaspa.TransactionOutput(lockAmount, vaultScript),
       new kaspa.TransactionOutput(DMS_NOTICE_SOMPI, beneficiaryScript),
@@ -896,7 +878,9 @@ async function createDeadManSwitchDraft(kaspa, searchParams) {
     payload,
     lockDaaBlocks,
     estimatedUnlockTimeIso: new Date(Date.now() + lockSeconds * 1000).toISOString(),
-    selectedOutpoint: outpoint,
+    selectedOutpoint: inputs[0].previousOutpoint,
+    fundingOutpoints: inputs.map((input) => input.previousOutpoint),
+    walletInputCount: inputs.length,
     lockSeconds,
     lockAmountSompi: lockAmount.toString(),
     lockAmountKas: (Number(lockAmount) / 100000000).toString(),

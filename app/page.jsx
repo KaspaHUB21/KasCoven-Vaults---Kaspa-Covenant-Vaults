@@ -1637,7 +1637,8 @@ export function KasCovenVaults({ recoveryMode = false }) {
 
       if (!draftResponse.ok) throw new Error(draft.error || "Could not create time-locked vault transaction.");
 
-      const toSignInputs = [{ index: 0, address, publicKey }];
+      const walletInputCount = Math.max(1, Number(draft.walletInputCount || draft.tx?.inputs?.length || 1));
+      const toSignInputs = Array.from({ length: walletInputCount }, (_, index) => ({ index, address, publicKey }));
       const signOptions = { autoFinalized: false, autoFinalize: false, toSignInputs };
       const signed = await provider.signPskt({ txJsonString: draft.txJson, options: signOptions });
       const response = await fetch(apiPath("/api/covenant-broadcast"), {
@@ -1887,7 +1888,8 @@ export function KasCovenVaults({ recoveryMode = false }) {
       );
       const draft = await readApiResponse(draftResponse, "Could not create dead-man-switch vault transaction.");
 
-      const toSignInputs = [{ index: 0, address, publicKey }];
+      const walletInputCount = Math.max(1, Number(draft.walletInputCount || draft.tx?.inputs?.length || 1));
+      const toSignInputs = Array.from({ length: walletInputCount }, (_, index) => ({ index, address, publicKey }));
       const signOptions = { autoFinalized: false, autoFinalize: false, toSignInputs };
       const signed = await provider.signPskt({ txJsonString: draft.txJson, options: signOptions });
       const response = await fetch(apiPath("/api/covenant-broadcast"), {
