@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { connectKaspire, prepareKaspireConnection, restoreKaspire } from "../../lib/kaspire-wallet";
+import { connectKaspire, connectKaspireExtension, prepareKaspireConnection, restoreKaspire, restoreKaspireExtension } from "../../lib/kaspire-wallet";
 
 const MANUAL_DISCONNECT_STORAGE_KEY = "kascoven:manual-disconnect";
 
@@ -130,7 +130,7 @@ export default function WizardPage() {
     : null;
 
   async function applyWallet(nextWallet, name) {
-    const accounts = name === "Kasware"
+    const accounts = name === "Kasware" || name === "Kaspire Extension"
       ? await nextWallet.getAccounts()
       : await nextWallet.requestAccounts();
     const nextAddress = typeof accounts?.[0] === "string" ? accounts[0] : accounts?.[0]?.address;
@@ -227,9 +227,23 @@ export default function WizardPage() {
     }
   }
 
+  async function connectWithKaspireExtension() {
+    try {
+      const nextWallet = await connectKaspireExtension();
+      await applyWallet(nextWallet, "Kaspire Extension");
+      window.localStorage.removeItem(MANUAL_DISCONNECT_STORAGE_KEY);
+    } catch (error) {
+      setCreateState((current) => ({
+        ...(current?.prepared ? current : {}),
+        signing: false,
+        error: error?.message || "Kaspire Extension connection was cancelled.",
+      }));
+    }
+  }
+
   async function disconnectWallet() {
     try {
-      if (walletName === "Kaspire" && typeof wallet?.disconnect === "function") {
+      if (walletName.startsWith("Kaspire") && typeof wallet?.disconnect === "function") {
         await wallet.disconnect();
       }
     } catch (error) {
@@ -302,6 +316,8 @@ export default function WizardPage() {
     (async () => {
       try {
         if (window.localStorage.getItem(MANUAL_DISCONNECT_STORAGE_KEY) === "1") return;
+        const extension = await restoreKaspireExtension();
+        if (extension) return await applyWallet(extension, "Kaspire Extension");
         const restored = await restoreKaspire();
         if (restored) return await applyWallet(restored, "Kaspire");
         if (window.kasware?.getAccounts) {
@@ -435,7 +451,8 @@ export default function WizardPage() {
           <button type="button" onClick={toggleWalletMenu}>{connectedLabel}</button>
           {walletMenuOpen && !address ? (
             <div className="wizardWalletMenu">
-              <button type="button" disabled={preparingKaspire} onClick={launchKaspire}><strong>{preparingKaspire ? "Preparing Kaspire…" : "Kaspire"}</strong><span>Mobile · WalletConnect</span></button>
+              <button type="button" disabled={preparingKaspire} onClick={launchKaspire}><strong>{preparingKaspire ? "Preparing Kaspire App…" : "Kaspire App"}</strong><span>Mobile · WalletConnect</span></button>
+              <button type="button" onClick={connectWithKaspireExtension}><strong>Kaspire Extension</strong><span>Browser extension</span></button>
               <button type="button" onClick={connectWithKasware}><strong>Kasware</strong><span>Browser extension</span></button>
             </div>
           ) : null}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { connectKaspire, prepareKaspireConnection, restoreKaspire } from "../lib/kaspire-wallet";
+import { connectKaspire, connectKaspireExtension, prepareKaspireConnection, restoreKaspire, restoreKaspireExtension } from "../lib/kaspire-wallet";
 
 const methodNames = ["signPskt", "sendKaspa", "getPublicKey", "getAccounts", "signKRC20Transaction"];
 const ACTIVE_TIME_LOCK_STORAGE_PREFIX = "kaslab-active-time-lock-vault:";
@@ -586,10 +586,19 @@ export function KasCovenVaults({ recoveryMode = false }) {
       return applyRestoredWallet("Kasware", kasware, accounts, publicKey);
     }
 
+    async function restoreKaspireBrowserExtension() {
+      const kaspire = await restoreKaspireExtension();
+      if (!kaspire) return false;
+      const accounts = await kaspire.getAccounts();
+      const publicKey = typeof kaspire.getPublicKey === "function" ? await kaspire.getPublicKey().catch(() => null) : null;
+      return applyRestoredWallet("Kaspire Extension", kaspire, accounts, publicKey);
+    }
+
     async function restoreWalletSession() {
       if (window.localStorage.getItem(MANUAL_DISCONNECT_STORAGE_KEY) === "1") return;
       const preferred = window.localStorage.getItem(LAST_WALLET_STORAGE_KEY);
       try {
+        if (preferred === "kaspire extension" && await restoreKaspireBrowserExtension()) return;
         if (preferred === "kasware") {
           await new Promise((resolve) => window.setTimeout(resolve, 250));
           if (await restoreKasware()) return;
@@ -603,6 +612,7 @@ export function KasCovenVaults({ recoveryMode = false }) {
         }
 
         if (preferred !== "kaspire") {
+          if (await restoreKaspireBrowserExtension()) return;
           await new Promise((resolve) => window.setTimeout(resolve, 250));
           await restoreKasware();
         }
@@ -716,6 +726,29 @@ export function KasCovenVaults({ recoveryMode = false }) {
       setStatus("Kasware was found, but requestAccounts is not available.");
     } catch (error) {
       setStatus(error?.message || "Connection failed.");
+    }
+  }
+
+  async function connectWithKaspireExtension() {
+    setStatus("");
+    try {
+      const kaspire = await connectKaspireExtension();
+      const accounts = await kaspire.getAccounts();
+      const publicKey = typeof kaspire.getPublicKey === "function" ? await kaspire.getPublicKey().catch(() => null) : null;
+      const nextReport = { connected: true, accounts, publicKey, walletName: "Kaspire Extension", summary: providerSummary(kaspire) };
+      setActiveProvider(kaspire);
+      setReport(nextReport);
+      setWalletMenuOpen(false);
+      setMobileMenuOpen(false);
+      window.localStorage.removeItem(MANUAL_DISCONNECT_STORAGE_KEY);
+      window.localStorage.setItem(LAST_WALLET_STORAGE_KEY, "kaspire extension");
+      const address = getAccountAddress(nextReport);
+      restoreActiveTimeLockVault(address);
+      restoreActiveDmsVault(address);
+      setShowMyVaults(true);
+      void refreshMyVaults(address);
+    } catch (error) {
+      setStatus(error?.message || "Kaspire Extension connection failed.");
     }
   }
 
@@ -2219,12 +2252,15 @@ export function KasCovenVaults({ recoveryMode = false }) {
           <div className="walletConnectMenu">
             <button className="headerMenuItem" type="button" onClick={() => accountAddress ? null : toggleWalletMenu()}>
               <strong>{accountAddress ? visibleReport.walletName || "Wallet connected" : "Connect Wallet"}</strong>
-              <span>{accountAddress ? shortAddress(accountAddress) : "Kaspire or Kasware"}</span>
+              <span>{accountAddress ? shortAddress(accountAddress) : "Kaspire App, Extension or Kasware"}</span>
             </button>
             {walletMenuOpen && !accountAddress ? (
               <div className="walletConnectDropdown" role="menu">
                 <button type="button" role="menuitem" disabled={preparingKaspire} onClick={launchKaspire}>
-                  <strong>{preparingKaspire ? "Preparing Kaspire…" : "Kaspire"}</strong><span>Mobile · WalletConnect</span>
+                  <strong>{preparingKaspire ? "Preparing Kaspire App…" : "Kaspire App"}</strong><span>Mobile · WalletConnect</span>
+                </button>
+                <button type="button" role="menuitem" onClick={connectWithKaspireExtension}>
+                  <strong>Kaspire Extension</strong><span>Browser extension</span>
                 </button>
                 <button type="button" role="menuitem" onClick={() => { setMobileMenuOpen(false); connectKasware(); }}>
                   <strong>Kasware</strong><span>Browser extension</span>
